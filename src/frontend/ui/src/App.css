@@ -1,0 +1,246 @@
+@reference "tailwindcss";
+
+/* Global overrides to ensure typography matches reference */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* Container to center the card on screen */
+.memory-container {
+  @apply flex justify-center items-center w-full min-h-[80vh] px-4 py-8;
+}
+
+/* Card Outer Container */
+.memory-card {
+  width: 100%;
+  max-width: 580px;
+  background-color: #121415;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 50px rgba(79, 209, 197, 0.02);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.memory-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6), 0 0 60px rgba(79, 209, 197, 0.04);
+}
+
+/* Header Section */
+.card-header {
+  @apply flex justify-between items-center py-6 px-8;
+  background-color: #161819;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Header Buttons */
+.header-btn {
+  @apply flex items-center gap-2 py-2 px-5 bg-transparent text-sm font-medium rounded-full cursor-pointer transition-all duration-200 ease-out select-none;
+}
+
+.btn-add {
+  color: #3ddc97;
+  border: 1px solid rgba(61, 220, 151, 0.25);
+}
+
+.btn-add:hover {
+  background-color: rgba(61, 220, 151, 0.08);
+  border-color: rgba(61, 220, 151, 0.5);
+  box-shadow: 0 0 12px rgba(61, 220, 151, 0.15);
+  transform: scale(1.02);
+}
+
+.btn-add:active {
+  transform: scale(0.98);
+}
+
+.btn-ai {
+  color: #8bb2f2;
+  border: 1px solid rgba(139, 178, 242, 0.25);
+}
+
+.btn-ai:hover {
+  background-color: rgba(139, 178, 242, 0.08);
+  border-color: rgba(139, 178, 242, 0.5);
+  box-shadow: 0 0 12px rgba(139, 178, 242, 0.15);
+  transform: scale(1.02);
+}
+
+.btn-ai:active {
+  transform: scale(0.98);
+}
+
+.btn-write {
+  color: #e59371;
+  border: 1px solid rgba(229, 147, 113, 0.25);
+}
+
+.btn-write:hover {
+  background-color: rgba(229, 147, 113, 0.08);
+  border-color: rgba(229, 147, 113, 0.5);
+  box-shadow: 0 0 12px rgba(229, 147, 113, 0.15);
+  transform: scale(1.02);
+}
+
+.btn-write:active {
+  transform: scale(0.98);
+}
+
+.icon {
+  @apply w-3.5 h-3.5 inline-block shrink-0;
+}
+
+/* Middle Content Section */
+.card-content {
+  @apply pt-10 pb-11 px-8;
+  background-color: #121415;
+}
+
+.content-label {
+  color: #3ac8ab;
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 32px;
+  letter-spacing: 0.2px;
+}
+
+.player-row {
+  @apply flex items-center gap-6;
+}
+
+/* Play Pill Button */
+.play-pill {
+  @apply flex items-center gap-2 py-2.5 px-5 border-none rounded-full text-sm font-bold cursor-pointer transition-all duration-200 ease-out shrink-0 select-none;
+  background-color: #3ac8ab;
+  color: #121415;
+  box-shadow: 0 4px 12px rgba(58, 200, 171, 0.2);
+}
+
+.play-pill:hover {
+  background-color: #4fe0c2;
+  box-shadow: 0 6px 18px rgba(58, 200, 171, 0.35);
+  transform: translateY(-1px);
+}
+
+.play-pill:active {
+  transform: translateY(0);
+}
+
+.play-pill.playing {
+  background-color: #e59371;
+  box-shadow: 0 4px 12px rgba(229, 147, 113, 0.2);
+}
+
+.play-pill.playing:hover {
+  background-color: #f7a988;
+  box-shadow: 0 6px 18px rgba(229, 147, 113, 0.35);
+}
+
+/* Waveform Visualizer */
+.waveform {
+  @apply flex items-center gap-[4px] h-8;
+}
+
+.wave-bar {
+  width: 3px;
+  background-color: #3ac8ab;
+  border-radius: 1.5px;
+  transition: height 0.15s ease-out, background-color 0.15s ease-out;
+}
+
+/* Dynamic colors & animation for waveform when playing */
+.waveform.playing .wave-bar {
+  animation: pulse-wave 1.2s ease-in-out infinite alternate;
+}
+
+/* Waveform animation delays for a natural voice visualizer effect */
+.waveform.playing .wave-bar:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.waveform.playing .wave-bar:nth-child(2) {
+  animation-delay: 0.4s;
+}
+
+.waveform.playing .wave-bar:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.waveform.playing .wave-bar:nth-child(4) {
+  animation-delay: 0.6s;
+}
+
+.waveform.playing .wave-bar:nth-child(5) {
+  animation-delay: 0.3s;
+}
+
+.waveform.playing .wave-bar:nth-child(6) {
+  animation-delay: 0.7s;
+}
+
+.waveform.playing .wave-bar:nth-child(7) {
+  animation-delay: 0.1s;
+}
+
+.waveform.playing .wave-bar:nth-child(8) {
+  animation-delay: 0.5s;
+}
+
+.waveform.playing .wave-bar:nth-child(9) {
+  animation-delay: 0.3s;
+}
+
+.waveform.playing .wave-bar:nth-child(10) {
+  animation-delay: 0.8s;
+}
+
+.waveform.playing .wave-bar:nth-child(11) {
+  animation-delay: 0.2s;
+}
+
+.waveform.playing .wave-bar:nth-child(12) {
+  animation-delay: 0.6s;
+}
+
+@keyframes pulse-wave {
+  0% {
+    transform: scaleY(0.4);
+  }
+
+  100% {
+    transform: scaleY(1.3);
+  }
+}
+
+/* Footer Section */
+.card-footer {
+  @apply flex;
+  background-color: #161819;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.footer-btn {
+  @apply flex-1 bg-transparent border-none py-5 px-6 text-sm font-medium cursor-pointer transition-all duration-200 text-center relative overflow-hidden select-none;
+  color: #cbd5e1;
+}
+
+.footer-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.footer-btn:active {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* Divider inside Footer */
+.footer-divider {
+  width: 1px;
+  background-color: rgba(255, 255, 255, 0.06);
+  align-self: stretch;
+}
