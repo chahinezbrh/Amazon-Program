@@ -114,13 +114,51 @@ function EntryDetail({ entry }) {
 }
 
 function TextEntry({ entry }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(entry.content || '');
+
+  // If the user switches tabs (different entry) or fresh content arrives, drop any in-progress edit.
+  useEffect(() => {
+    setDraft(entry.content || '');
+    setIsEditing(false);
+  }, [entry.id, entry.content]);
+
+  function handleSave() {
+    vscode.postMessage({ type: 'saveWritten', entryId: entry.id, content: draft });
+    setIsEditing(false);
+  }
+
+  function handleCancel() {
+    setDraft(entry.content || '');
+    setIsEditing(false);
+  }
+
+  if (isEditing) {
+    return (
+      <div className="text-entry">
+        <textarea
+          className="text-editor"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={10}
+          autoFocus
+        />
+        <div className="editor-actions">
+          <button className="ghost-btn small primary" onClick={handleSave}>
+            Save
+          </button>
+          <button className="ghost-btn small" onClick={handleCancel}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="text-entry">
       <div className="text-content">{entry.content || '(empty)'}</div>
-      <button
-        className="ghost-btn small"
-        onClick={() => vscode.postMessage({ type: 'editWritten', entryId: entry.id })}
-      >
+      <button className="ghost-btn small" onClick={() => setIsEditing(true)}>
         Edit
       </button>
     </div>
