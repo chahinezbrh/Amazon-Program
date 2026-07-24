@@ -17,3 +17,9 @@ Thumbs.db
 .vscode/
 .idea/
 /generated/prisma
+
+# SQLite database files (your actual data — shouldn't be in git)
+*.db
+*.db-journal
+prisma/dev.db
+prisma/*.db
