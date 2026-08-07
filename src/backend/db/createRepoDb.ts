@@ -1,4 +1,4 @@
-// to create the database automatically afetr connecting the github repo and run the migrations 
+// to create the database automatically after connecting the github repo and run the migrations 
 // if missing
 
 import { PrismaClient } from '@prisma/client';
@@ -7,9 +7,9 @@ import path from 'path'; // this one to build the paths
 import fs from 'fs'; //fs = filesystem module to manage the files and the folders
 
 
-const clients = new Map<String , PrismaClient>(); //to connect once to the repo 
+const clients = new Map<string , PrismaClient>(); //to connect once to the repo 
 
-export function getRepoDb(repoId: String): PrismaClient{
+export function getRepoDb(repoId: string): PrismaClient{
     if(clients.has(repoId)) return clients.get(repoId)! ; //to check whether this repoid has a client or no 
 
     const dbDir = path.join(process.cwd(), 'repo-dbs'); //create a path using the current working directory path and adds repo-dbs
