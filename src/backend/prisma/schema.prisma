@@ -34,9 +34,21 @@ model FunctionRecord {
 
   hash         String
   previousHash String? //the ? means it can be null if there is no ? it means it can t be ull
+  
+  //written doc - 0 or 1 per function
+  writtenDoc    String?
+  writtenAuthor String?
+  writtenAt     DataTime?
+  writtenAtHash String?
 
-  aiDocumentation String?
-  aiGeneratedAt   DateTime? 
+
+  //ai doc 0 or 1 per function
+  
+
+  aiDocumentation   String?
+  aiGeneratedAt     DateTime? 
+  aiGeneratedAtHash String?
+  
 
   confidence     String @default("AI_ONLY") 
   
@@ -62,7 +74,7 @@ model Memory {
   id   String  @id  @default(uuid())
 
   functionId  String
-  function    FunctionRecord  @relation(fields: [functionId], references: [id]) //like the foreign key in sql
+  function    FunctionRecord  @relation(fields: [functionId], references: [id]) //the foreign key of the funcionrecord
 
   author          String 
   audioUrl        String 
