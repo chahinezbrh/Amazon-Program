@@ -10,7 +10,7 @@
 //-4  Initialize Prisma (only if you don't already have the prisma/ folder — you do, so you can skip this)
 // npx prisma init --datasource-provider sqlite
 
-
+// to run and see the tables use the command npx prisma studio
 generator client {
   provider = "prisma-client-js"
   
@@ -41,7 +41,7 @@ model FunctionRecord {
   confidence     String @default("AI_ONLY") 
   
   //to indicate whether the documentation is ai written or human 
-  // check the enum part at the end of the file 
+  
   
   author String? 
 
