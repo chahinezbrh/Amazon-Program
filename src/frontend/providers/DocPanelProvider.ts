@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DocEntry, SymbolMeta, WebviewToExtensionMessage } from '../../shared/types';
+import { getDocsForSymbol, saveDoc, currentAuthor } from '../services/docClient';
 
 /**
  * Manages the "Show Doc" side panel: a single reusable webview that
@@ -144,8 +145,29 @@ export class DocPanelProvider {
         });
         break;
       }
-    }
+
+    case 'saveWritten': {
+    if (!this.currentMeta) break;
+
+    // 1. write to disk
+    await saveDoc({
+      type: 'written',
+      meta: this.currentMeta,
+      content: message.content,
+      author: currentAuthor(),
+    });
+
+    // 2. read back what's now on disk — this line creates `fresh`
+    const fresh = await getDocsForSymbol(this.currentMeta);
+
+    // 3. update the cache and tell the webview to re-render
+    this.currentEntries = fresh;
+    this.panel.webview.postMessage({ type: 'entries', payload: fresh });
+    break;
   }
+}
+}   
+
 
   private getHtml(webview: vscode.Webview): string {
     const cssUri = webview.asWebviewUri(
