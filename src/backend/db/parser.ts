@@ -23,6 +23,7 @@ export function isLanguageSupported(language: string ) : boolean {
 }
 
 
+
 export function parseFile(file: CodeFile): ParsedFunction[] {
     const config = LANGUAGE_CONFIGS[file.language];
     if(!config) return []; // if not isntalled skip

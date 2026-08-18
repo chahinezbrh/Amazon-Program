@@ -40,11 +40,9 @@ model FunctionRecord {
   writtenAuthor String?
   writtenAt     DataTime?
   writtenAtHash String?
-
-
-  //ai doc 0 or 1 per function
   
-
+  
+  
   aiDocumentation   String?
   aiGeneratedAt     DateTime? 
   aiGeneratedAtHash String?
