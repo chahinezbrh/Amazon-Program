@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import './FunctionHoverPopup.css';
+import './functionHoverPopup.css';
 
 // Provided globally by the VS Code webview environment
 const vscode = acquireVsCodeApi();
