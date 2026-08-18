@@ -1,92 +1,92 @@
+// src/extension.ts
+
 import * as vscode from 'vscode';
-import { DocPanelProvider } from './frontend/providers/DocPanelProvider';
-import { getDocsForSymbol } from './backend/services/docService';
+import { HoverProvider } from './frontend/providers/hoverProvider';
+import { showDocPanel } from './frontend/commands/showDocPanel';
 import { SymbolMeta } from './shared/types';
 
+/** Must stay in sync with activationEvents in package.json. */
+const SUPPORTED_LANGUAGES = [
+  'javascript',
+  'typescript',
+  'javascriptreact',
+  'typescriptreact',
+];
+
 export function activate(context: vscode.ExtensionContext) {
-  // ... your existing hover provider registration, etc.
+  // -------------------------------------------------------------------------
+  // 1. The trigger: hovering a symbol
+  // -------------------------------------------------------------------------
 
+  const hoverProvider = new HoverProvider();
   context.subscriptions.push(
-    vscode.commands.registerCommand('docManager.showDocPanel', async (meta: SymbolMeta) => {
-      // 1. Open the panel immediately — meta is already known from the hover,
-      //    no need to wait on anything.
-      DocPanelProvider.show(context.extensionUri, meta);
-
-      // 2. Fetch the actual entries in the background and push them in
-      //    once ready. DocPanelProvider.currentPanel is guaranteed to be
-      //    set synchronously by the call above.
-      try {
-        const entries = await getDocsForSymbol(meta);
-        DocPanelProvider.currentPanel?.updateEntries(entries);
-      } catch (err) {
-        DocPanelProvider.currentPanel?.updateError(
-          err instanceof Error ? err.message : 'Failed to load documentation'
-        );
-      }
-    })
+    vscode.languages.registerHoverProvider(SUPPORTED_LANGUAGES, hoverProvider)
   );
 
-  // ---------------------------------------------------------------------
-  // TEMPORARY — lets you test the panel's UI from the Command Palette
-  // before the hover is wired up. Delete this whole block once
-  // 'docManager.showDocPanel' is triggered from the real hover.
-  // ---------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // 2. The task: open the panel and load its documentation
+  // -------------------------------------------------------------------------
+
   context.subscriptions.push(
-    vscode.commands.registerCommand('docManager.testShowDocPanel', () => {
-      const mockMeta: SymbolMeta = {
+    vscode.commands.registerCommand(
+      'docManager.showDocPanel',
+      (meta: SymbolMeta) => showDocPanel(context, meta)
+    )
+  );
+
+  // -------------------------------------------------------------------------
+  // 3. Not built yet.
+  //
+  // These MUST be registered even as stubs: the hover renders them as
+  // command: URIs, and an unregistered command URI fails silently — the user
+  // clicks and nothing happens, with no error anywhere to explain why.
+  // -------------------------------------------------------------------------
+
+  const notImplemented = (id: string) =>
+    vscode.commands.registerCommand(id, () =>
+      vscode.window.showInformationMessage(`"${id}" isn't built yet.`)
+    );
+
+  context.subscriptions.push(
+    notImplemented('docManager.addMemory'),
+    notImplemented('docManager.aiDocs'),
+    notImplemented('docManager.writeDocs'),
+    notImplemented('docManager.playVoice'),
+    notImplemented('docManager.editDoc'),
+    notImplemented('docManager.generateDoc'),
+    notImplemented('docManager.recordDoc')
+  );
+
+  // -------------------------------------------------------------------------
+  // 4. TEMPORARY — opens the panel for a known symbol straight from the
+  // Command Palette, so the read path can be tested without relying on the
+  // hover resolving the right symbol. Routes through the real command rather
+  // than a parallel path, so what you see is what the hover will produce.
+  //
+  // Point this at a function you have seeded in .docmanager/docs.json.
+  // Delete once the hover is trusted.
+  // -------------------------------------------------------------------------
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('docManager.testShowDocPanel', async () => {
+      const folder = vscode.workspace.workspaceFolders?.[0];
+      if (!folder) {
+        vscode.window.showErrorMessage('Open a folder first.');
+        return;
+      }
+
+      const meta: SymbolMeta = {
         symbolName: 'authenticate',
-        filePath: __filename, // any real file so "jump to symbol" doesn't error
-        startLine: 0,
-        endLine: 10,
+        filePath: vscode.Uri.joinPath(folder.uri, 'middleware.js').fsPath,
+        startLine: 2,
+        endLine: 14,
       };
 
-      DocPanelProvider.show(context.extensionUri, mockMeta);
-
-      // Fake network delay so you can see the loading skeleton too.
-      setTimeout(() => {
-        DocPanelProvider.currentPanel?.updateEntries([
-          {
-            id: '1',
-            type: 'written',
-            content:
-              'Validates the JWT on the request and attaches the decoded user to ctx.state.user. Throws if the token is missing or invalid.',
-            author: 'Rayhane',
-            createdAt: new Date().toISOString(),
-            symbolName: mockMeta.symbolName,
-            filePath: mockMeta.filePath,
-            startLine: mockMeta.startLine,
-            endLine: mockMeta.endLine,
-          },
-          {
-            id: '2',
-            type: 'ai',
-            content:
-              'AI summary: middleware that authenticates incoming requests via bearer token, decoding and validating it before allowing the request to proceed.',
-            author: 'AI generated',
-            createdAt: new Date().toISOString(),
-            symbolName: mockMeta.symbolName,
-            filePath: mockMeta.filePath,
-            startLine: mockMeta.startLine,
-            endLine: mockMeta.endLine,
-          },
-          {
-            id: '3',
-            type: 'voice',
-            audioPath: '', // point at a real .mp3/.wav on disk to test playback
-            durationSeconds: 47,
-            transcript:
-              "...latency issues during peak traffic last sprint. We had to scale the primary cluster by 2 nodes to handle the JWT validation overhead.",
-            author: 'Rayhane',
-            createdAt: new Date().toISOString(),
-            symbolName: mockMeta.symbolName,
-            filePath: mockMeta.filePath,
-            startLine: mockMeta.startLine,
-            endLine: mockMeta.endLine,
-          },
-        ]);
-      }, 1200);
+      await vscode.commands.executeCommand('docManager.showDocPanel', meta);
     })
   );
 }
 
-export function deactivate() {}
+export function deactivate() {
+  // Everything is disposed via context.subscriptions.
+}
