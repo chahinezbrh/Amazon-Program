@@ -24467,18 +24467,13 @@
   var import_jsx_runtime = __toESM(require_jsx_runtime());
   var vscode = acquireVsCodeApi();
   function FunctionHoverPopup() {
-    const [functionData, setFunctionData] = (0, import_react.useState)(null);
+    const [functionData, setFunctionData] = (0, import_react.useState)({
+      id: "1",
+      name: "authenticateUser",
+      durationSec: 47
+    });
     const [isPlaying, setIsPlaying] = (0, import_react.useState)(false);
     const [progress, setProgress] = (0, import_react.useState)(0);
-    (0, import_react.useEffect)(() => {
-      const listener = (event) => {
-        if (event.data.command === "setData") {
-          setFunctionData(event.data.data);
-        }
-      };
-      window.addEventListener("message", listener);
-      return () => window.removeEventListener("message", listener);
-    }, []);
     const durationSec = functionData?.durationSec ?? 47;
     (0, import_react.useEffect)(() => {
       if (!isPlaying)
@@ -24525,9 +24520,6 @@
       return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
     };
     const barHeights = [14, 24, 20, 24, 10, 16, 26, 26, 26, 26, 18, 12];
-    if (!functionData) {
-      return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "memory-container loading", children: "Loading\u2026" });
-    }
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "memory-container", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "memory-card", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { className: "card-header", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "header-btn btn-add", onClick: handleAddMemory, children: [

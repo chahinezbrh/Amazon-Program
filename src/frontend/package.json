@@ -6,7 +6,9 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [],
   "main": "./dist/frontend/extension.js",
   "contributes": {
@@ -14,6 +16,10 @@
       {
         "command": "yourExtension.testPopup",
         "title": "Test: Show Function Popup"
+      },
+      {
+        "command": "yourExtension.testDocPanel",
+        "title": "Test: Show Doc Panel"
       }
     ]
   },
@@ -31,6 +37,5 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
-    
   }
 }

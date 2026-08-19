@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
 import './functionHoverPopup.css';
 
-// Provided globally by the VS Code webview environment
 const vscode = acquireVsCodeApi();
 
 export default function FunctionHoverPopup() {
-  const [functionData, setFunctionData] = useState(null);
+  // TEMP: hardcoded static data, bypassing postMessage entirely, just to check styling
+  const [functionData, setFunctionData] = useState({
+    id: '1',
+    name: 'authenticateUser',
+    durationSec: 47,
+  });
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  // Receive real function data pushed from FunctionHoverProvider.ts
+  /* TEMP: disabled while testing static rendering
   useEffect(() => {
     const listener = (event) => {
       if (event.data.command === 'setData') {
@@ -19,6 +24,7 @@ export default function FunctionHoverPopup() {
     window.addEventListener('message', listener);
     return () => window.removeEventListener('message', listener);
   }, []);
+  */
 
   const durationSec = functionData?.durationSec ?? 47;
 
@@ -75,14 +81,9 @@ export default function FunctionHoverPopup() {
 
   const barHeights = [14, 24, 20, 24, 10, 16, 26, 26, 26, 26, 18, 12];
 
-  if (!functionData) {
-    return <div className="memory-container loading">Loading…</div>;
-  }
-
   return (
     <div className="memory-container">
       <div className="memory-card">
-        {/* Header Section */}
         <header className="card-header">
           <button className="header-btn btn-add" onClick={handleAddMemory}>
             <span className="plus-icon">+</span>
@@ -102,12 +103,10 @@ export default function FunctionHoverPopup() {
           </button>
         </header>
 
-        {/* Content Area */}
         <main className="card-content">
           <div className="content-label">Voice memory</div>
 
           <div className="player-row">
-            {/* Play Pill */}
             <button
               className={`play-pill ${isPlaying ? 'playing' : ''}`}
               onClick={handlePlayToggle}
@@ -125,7 +124,6 @@ export default function FunctionHoverPopup() {
               <span>{formatTime()}</span>
             </button>
 
-            {/* Waveform Visualizer */}
             <div className={`waveform ${isPlaying ? 'playing' : ''}`}>
               {barHeights.map((height, index) => (
                 <div key={index} className="wave-bar" style={{ height: `${height}px` }} />
@@ -134,7 +132,6 @@ export default function FunctionHoverPopup() {
           </div>
         </main>
 
-        {/* Footer Section */}
         <footer className="card-footer">
           <button className="footer-btn" onClick={handlePlayToggle}>
             {isPlaying ? 'Pause memory' : 'Play memory'}

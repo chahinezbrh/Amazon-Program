@@ -65,13 +65,16 @@ class FunctionHoverProvider {
     }
     getHtml(webview) {
         const scriptPath = vscode.Uri.file(path.join(this.context.extensionPath, 'dist', 'webview', 'functionHoverPopup.js'));
+        const cssPath = vscode.Uri.file(path.join(this.context.extensionPath, 'dist', 'webview', 'functionHoverPopup.css'));
         const scriptUri = webview.asWebviewUri(scriptPath);
+        const cssUri = webview.asWebviewUri(cssPath);
         return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
+  <link rel="stylesheet" href="${cssUri}">
   <style>
-    body { margin: 0; padding: 8px; background: transparent; }
+    body { margin: 0; padding: 0; background: transparent; }
   </style>
 </head>
 <body>
