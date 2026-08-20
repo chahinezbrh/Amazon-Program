@@ -20,8 +20,35 @@
       {
         "command": "yourExtension.testDocPanel",
         "title": "Test: Show Doc Panel"
-      }
-    ]
+      },
+      {
+        "command": "yourExtension.testSideBar",
+        "title": "Test: Show Sidebar"
+      },
+      {
+  "command": "yourExtension.testPlayMemory",
+  "title": "Test: Show Play Memory"
+}
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "amazonProgram",
+          "title": "CMS Memory",
+          "icon": "$(brain)"
+        }
+      ]
+    },
+    "views": {
+      "amazonProgram": [
+        {
+          "type": "webview",
+          "id": "amazonProgram.sideBar",
+          "name": "Memories — This File",
+          "icon": "$(brain)"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run build",

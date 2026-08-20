@@ -67,7 +67,7 @@ class DocPanelProvider {
                 // NOTE: assumes your build (esbuild/webpack) emits the bundled
                 // docPanel.js + docPanel.css into out/frontend/webviews/docPanel.
                 // Adjust if your build outputs elsewhere.
-                vscode.Uri.joinPath(extensionUri, 'out', 'frontend', 'webviews', 'docPanel'),
+                vscode.Uri.joinPath(extensionUri, 'dist', 'webview', 'docPanel'),
                 vscode.Uri.joinPath(extensionUri, 'assets'), // folder where recorded audio lives
             ],
         });
@@ -150,8 +150,8 @@ class DocPanelProvider {
         }
     }
     getHtml(webview) {
-        const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'out', 'frontend', 'webviews', 'docPanel', 'docPanel.css'));
-        const jsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'out', 'frontend', 'webviews', 'docPanel', 'docPanel.js'));
+        const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'docPanel', 'docPanel.css')); //  LOOK HERE : i guess here is the problem remove out frontend and before webviews add dist but still to chekc with claude
+        const jsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'docPanel', 'docPanel.js'));
         const nonce = getNonce();
         return /* html */ `<!DOCTYPE html>
 <html lang="en">

@@ -38,6 +38,8 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const FunctionHoverProvider_1 = require("./providers/FunctionHoverProvider");
 const DocPanelProvider_1 = require("./providers/DocPanelProvider");
+const sideBarProvider_1 = require("./providers/sideBarProvider");
+const playMemoryProvider_1 = require("./providers/playMemoryProvider");
 function activate(context) {
     const hoverProvider = new FunctionHoverProvider_1.FunctionHoverProvider(context);
     const testPopupCommand = vscode.commands.registerCommand('yourExtension.testPopup', () => {
@@ -76,6 +78,19 @@ function activate(context) {
             DocPanelProvider_1.DocPanelProvider.currentPanel?.updateEntries(mockEntries);
         }, 500);
     });
-    context.subscriptions.push(testPopupCommand, testDocPanelCommand);
+    const sideBarProvider = new sideBarProvider_1.SideBarProvider(context.extensionUri);
+    const sideBarView = vscode.window.registerWebviewViewProvider(sideBarProvider_1.SideBarProvider.viewId, sideBarProvider);
+    const testSideBarCommand = vscode.commands.registerCommand('yourExtension.testSideBar', () => {
+        vscode.commands.executeCommand(`${sideBarProvider_1.SideBarProvider.viewId}.focus`);
+    });
+    const testPlayMemoryCommand = vscode.commands.registerCommand('yourExtension.testPlayMemory', () => {
+        playMemoryProvider_1.PlayMemoryProvider.show(context.extensionUri, {
+            functionName: 'authenticateUser',
+            filePath: 'src/auth/middleware.js',
+            durationSec: 47,
+            transcript: 'This function checks whether the incoming request has a valid session token before allowing access.',
+        });
+    });
+    context.subscriptions.push(testPopupCommand, testDocPanelCommand, sideBarView, testSideBarCommand, testPlayMemoryCommand);
 }
 function deactivate() { }

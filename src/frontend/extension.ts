@@ -1,7 +1,10 @@
 import * as vscode from 'vscode';
 import { FunctionHoverProvider } from './providers/FunctionHoverProvider';
 import { DocPanelProvider } from './providers/DocPanelProvider';
+import { SideBarProvider } from './providers/sideBarProvider';
 import { SymbolMeta, DocEntry } from '../shared/types';
+import { PlayMemoryProvider } from './providers/playMemoryProvider';
+
 
 export function activate(context: vscode.ExtensionContext) {
   const hoverProvider = new FunctionHoverProvider(context);
@@ -47,7 +50,26 @@ export function activate(context: vscode.ExtensionContext) {
     }, 500);
   });
 
-  context.subscriptions.push(testPopupCommand, testDocPanelCommand);
+  const sideBarProvider = new SideBarProvider(context.extensionUri);
+  const sideBarView = vscode.window.registerWebviewViewProvider(
+    SideBarProvider.viewId,
+    sideBarProvider
+  );
+
+  const testSideBarCommand = vscode.commands.registerCommand('yourExtension.testSideBar', () => {
+    vscode.commands.executeCommand(`${SideBarProvider.viewId}.focus`);
+  });
+
+   const testPlayMemoryCommand = vscode.commands.registerCommand('yourExtension.testPlayMemory', () => {
+    PlayMemoryProvider.show(context.extensionUri, {
+      functionName: 'authenticateUser',
+      filePath: 'src/auth/middleware.js',
+      durationSec: 47,
+      transcript: 'This function checks whether the incoming request has a valid session token before allowing access.',
+    });
+  });
+
+  context.subscriptions.push(testPopupCommand, testDocPanelCommand, sideBarView, testSideBarCommand , testPlayMemoryCommand);
 }
 
 export function deactivate() {}
