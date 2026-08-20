@@ -1,13 +1,20 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { SymbolMeta, DocEntry } from '../../shared/types';
+import { DocPanelProvider } from './DocPanelProvider';
 
 export class FunctionHoverProvider {
   private panel: vscode.WebviewPanel | undefined;
+  private currentName: string = '';        // ← added
+  private currentFilePath: string = '';    // ← added
 
   constructor(private context: vscode.ExtensionContext) {}
 
   async showForFunction(functionName: string, filePath: string) {
+    this.currentName = functionName;        // ← added — actually stores it
+    this.currentFilePath = filePath;        // ← added
+
     const functionData = await this.fetchFunctionData(functionName, filePath);
 
     if (!this.panel) {
@@ -28,17 +35,42 @@ export class FunctionHoverProvider {
       });
 
       this.panel.webview.onDidReceiveMessage((message) => {
-        console.log('Received from webview:', message);
-        // handle message.command: 'playMemory', 'addMemory', 'generateAiDocs', 'writeDocs', 'openFullDocs'
+        if (message.command === 'openFullDocs') {
+          const meta: SymbolMeta = {
+            symbolName: this.currentName,
+            filePath: this.currentFilePath,
+            startLine: 0,
+            endLine: 0,
+          };
+          DocPanelProvider.show(this.context.extensionUri, meta);
+
+          this.fetchDocEntries(meta).then((entries) => {
+            DocPanelProvider.currentPanel?.updateEntries(entries);
+          });
+        } else {
+          console.log('Received from webview:', message);
+        }
       });
     }
 
     this.panel.webview.html = this.getHtml(this.panel.webview);
 
-    // give the webview a moment to mount before sending data
     setTimeout(() => {
       this.panel?.webview.postMessage({ command: 'setData', data: functionData });
     }, 200);
+  }
+
+  // ← added — was missing entirely
+  private async fetchDocEntries(meta: SymbolMeta): Promise<DocEntry[]> {
+    // TEMP mock — replace with a real backend call later
+    return [
+      {
+        id: '1',
+        kind: 'written',
+        content: `Docs for ${meta.symbolName}`,
+        createdAt: new Date().toISOString(),
+      },
+    ];
   }
 
   private getHtml(webview: vscode.Webview): string {
@@ -68,7 +100,6 @@ export class FunctionHoverProvider {
   }
 
   private async fetchFunctionData(functionName: string, filePath: string) {
-    // TEMP mock — swap for a real fetch() to your backend once it's running
     return {
       id: '1',
       name: functionName,

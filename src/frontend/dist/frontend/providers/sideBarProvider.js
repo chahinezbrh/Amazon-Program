@@ -65,38 +65,93 @@ class SideBarProvider {
                 case 'recordMemory':
                     vscode.commands.executeCommand('yourExtension.recordMemory');
                     break;
+                case 'openNotifications':
+                    vscode.commands.executeCommand('yourExtension.showNotificationCenter', message.filter);
+                    break;
             }
         }, null, this._disposables);
         // Push data whenever the active editor changes
-        this._disposables.push(vscode.window.onDidChangeActiveTextEditor(() => this._pushData()), vscode.workspace.onDidChangeTextDocument(() => this._pushData()));
+        this._disposables.push(vscode.window.onDidChangeActiveTextEditor(() => this._pushData()), vscode.workspace.onDidChangeTextDocument((e) => {
+            if (vscode.window.activeTextEditor?.document === e.document) {
+                this._pushData();
+            }
+        }));
         // Initial push
         this._pushData();
     }
     /** Send current file + function names to the webview. */
-    _pushData() {
+    async _pushData() {
         const editor = vscode.window.activeTextEditor;
         if (!this._view)
             return;
-        if (!editor) {
+        if (!editor || !editor.document || editor.document.isUntitled) {
             this._view.webview.postMessage({
                 command: 'setData',
                 fileName: '',
+                filePath: '',
                 functions: [],
+                noFile: true,
             });
             return;
         }
-        const fileName = path.basename(editor.document.fileName);
-        const functions = this._parseFunctions(editor.document);
+        const filePath = editor.document.fileName;
+        const fileName = path.basename(filePath);
+        // Indicate loading while asking backend
+        this._view.webview.postMessage({
+            command: 'setLoading',
+            fileName,
+        });
+        const functions = await this._fetchFunctionsFromBackend(editor.document);
         this._view.webview.postMessage({
             command: 'setData',
             fileName,
+            filePath,
             functions,
+            noFile: false,
         });
+    }
+    /**
+     * Sends a request to the backend service to retrieve parsed functions
+     * and their memory status for the selected file, with fallback parser.
+     */
+    async _fetchFunctionsFromBackend(document) {
+        const filePath = document.fileName;
+        const content = document.getText();
+        try {
+            // Backend endpoint to request function list for current file
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 1200);
+            const response = await fetch('http://localhost:3000/api/functions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filePath,
+                    content,
+                    language: document.languageId,
+                }),
+                signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+            if (response.ok) {
+                const data = await response.json();
+                if (Array.isArray(data.functions) && data.functions.length > 0) {
+                    return data.functions.map((fn, idx) => ({
+                        name: fn.name,
+                        hasMemory: Boolean(fn.hasMemory),
+                        isSelected: idx === 0,
+                    }));
+                }
+            }
+        }
+        catch {
+            // Backend is starting up or offline — use fallback parser
+        }
+        // Fallback: local parser
+        return this._parseFunctions(document);
     }
     /**
      * Very lightweight regex-based function name extractor.
      * Works for JS/TS/Python/Go — good enough for a sidebar list.
-     * The extension host can swap this for a proper LSP call later.
      */
     _parseFunctions(document) {
         const text = document.getText();

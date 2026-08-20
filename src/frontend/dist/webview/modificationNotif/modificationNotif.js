@@ -1113,7 +1113,7 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useCallback(callback, deps);
           }
-          function useMemo(create, deps) {
+          function useMemo2(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useMemo(create, deps);
           }
@@ -1885,7 +1885,7 @@
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
           exports.useLayoutEffect = useLayoutEffect;
-          exports.useMemo = useMemo;
+          exports.useMemo = useMemo2;
           exports.useReducer = useReducer;
           exports.useRef = useRef;
           exports.useState = useState2;
@@ -2384,9 +2384,9 @@
           if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
             __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
           }
-          var React2 = require_react();
+          var React3 = require_react();
           var Scheduler = require_scheduler();
-          var ReactSharedInternals = React2.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React3.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           var suppressWarning = false;
           function setSuppressWarning(newSuppressWarning) {
             {
@@ -3991,7 +3991,7 @@
             {
               if (props.value == null) {
                 if (typeof props.children === "object" && props.children !== null) {
-                  React2.Children.forEach(props.children, function(child) {
+                  React3.Children.forEach(props.children, function(child) {
                     if (child == null) {
                       return;
                     }
@@ -23560,7 +23560,7 @@
       if (true) {
         (function() {
           "use strict";
-          var React2 = require_react();
+          var React3 = require_react();
           var REACT_ELEMENT_TYPE = Symbol.for("react.element");
           var REACT_PORTAL_TYPE = Symbol.for("react.portal");
           var REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
@@ -23586,7 +23586,7 @@
             }
             return null;
           }
-          var ReactSharedInternals = React2.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React3.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           function error(format) {
             {
               {
@@ -24458,94 +24458,388 @@
     }
   });
 
-  // webview/sideBar/index.jsx
+  // webview/modificationNotif/index.jsx
   var import_react2 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
-  // webview/sideBar/sideBar.jsx
+  // webview/modificationNotif/modificationNotif.jsx
   var import_react = __toESM(require_react());
   var import_jsx_runtime = __toESM(require_jsx_runtime());
   var vscode = acquireVsCodeApi();
-  function SideBar() {
-    const [fileName, setFileName] = (0, import_react.useState)("");
-    const [functions, setFunctions] = (0, import_react.useState)([]);
-    const [loading, setLoading] = (0, import_react.useState)(false);
-    const [recording, setRecording] = (0, import_react.useState)(false);
+  function ModificationNotif() {
+    const [notifications, setNotifications] = (0, import_react.useState)([
+      {
+        id: "notif-1",
+        type: "critical",
+        title: "processPayment() \u2014 logic changed under memory",
+        functionName: "processPayment()",
+        filePath: "src/payments/stripe.js",
+        lineRange: "line 42-67",
+        startLine: 42,
+        endLine: 67,
+        description: "The retry backoff interval was modified. Karim's memory no longer matches.",
+        timestamp: "2 hours ago",
+        affectedAuthor: "Karim's memory affected",
+        status: "critical",
+        changeType: "Logic changed",
+        diffLines: [
+          { type: "del", text: "- retryAfter = 2000; // fixed" },
+          { type: "del", text: "- attempts = 3;" },
+          { type: "add", text: "+ retryAfter = base * 2 ** n;" },
+          { type: "add", text: "+ attempts = 5; // exponential" }
+        ],
+        originalMemory: {
+          quote: "\u201CNever remove the idempotency key \u2014 Stripe will double charge on retry.\u201D",
+          duration: "0:38",
+          author: "Karim Haddad",
+          authorInfo: "left team 3mo ago"
+        },
+        suggestedFollowUp: "Does the idempotency key still apply with the new exponential backoff?"
+      },
+      {
+        id: "notif-2",
+        type: "critical",
+        title: "verifyToken() \u2014 function signature changed",
+        functionName: "verifyToken()",
+        filePath: "src/auth/middleware.js",
+        lineRange: "line 12-18",
+        startLine: 12,
+        endLine: 18,
+        description: "A new parameter was added. The recorded explanation may be incomplete.",
+        timestamp: "6 hours ago",
+        affectedAuthor: "Sara's memory affected",
+        status: "critical",
+        changeType: "Function signature changed",
+        diffLines: [
+          { type: "del", text: "- export function verifyToken(token: string) {" },
+          { type: "add", text: "+ export function verifyToken(token: string, options?: VerifyOptions) {" },
+          { type: "add", text: "+   if (options?.strict) validateIssuer(token);" }
+        ],
+        originalMemory: {
+          quote: "\u201CThe token verification must always check expiry and signature before reading claims.\u201D",
+          duration: "0:45",
+          author: "Sara Chen",
+          authorInfo: "active contributor"
+        },
+        suggestedFollowUp: "Are all callers passing the new options argument properly?"
+      },
+      {
+        id: "notif-3",
+        type: "modification",
+        title: "authenticateUser() \u2014 error handler updated",
+        functionName: "authenticateUser()",
+        filePath: "src/auth/middleware.js",
+        lineRange: "line 20-35",
+        startLine: 20,
+        endLine: 35,
+        description: "Custom error codes were added to authentication rejection.",
+        timestamp: "1 day ago",
+        affectedAuthor: "Alex's memory affected",
+        status: "resolved",
+        changeType: "Error handler updated",
+        diffLines: [
+          { type: "del", text: '- throw new Error("Auth failed");' },
+          { type: "add", text: '+ throw new AuthError("INVALID_TOKEN", 401);' }
+        ],
+        originalMemory: {
+          quote: "\u201CEnsure all authentication failures return a standard 401 response.\u201D",
+          duration: "0:22",
+          author: "Alex Rivera",
+          authorInfo: "team lead"
+        },
+        suggestedFollowUp: "Are client applications handling the structured AuthError response?"
+      }
+    ]);
+    const [activeTab, setActiveTab] = (0, import_react.useState)("modifications");
+    const [reviewedNotifId, setReviewedNotifId] = (0, import_react.useState)(null);
+    const [isPlayingAudio, setIsPlayingAudio] = (0, import_react.useState)(false);
     (0, import_react.useEffect)(() => {
-      const handler = (event) => {
+      vscode.postMessage({ command: "ready" });
+      const messageHandler = (event) => {
         const msg = event.data;
-        if (msg.command === "setLoading") {
-          setLoading(true);
-          if (msg.fileName)
-            setFileName(msg.fileName);
-        } else if (msg.command === "setData") {
-          setLoading(false);
-          setFileName(msg.fileName || "");
-          setFunctions(msg.functions || []);
+        if (msg.command === "setData") {
+          if (msg.notifications) {
+            setNotifications(msg.notifications);
+          }
+          if (msg.activeFilter) {
+            if (msg.activeFilter === "resolved")
+              setActiveTab("resolved");
+            else
+              setActiveTab("modifications");
+          }
         }
       };
-      window.addEventListener("message", handler);
-      return () => window.removeEventListener("message", handler);
+      window.addEventListener("message", messageHandler);
+      return () => window.removeEventListener("message", messageHandler);
     }, []);
-    const dotClass = (fn) => {
-      if (fn.isSelected)
-        return "dot dot-teal";
-      if (fn.hasMemory)
-        return "dot dot-yellow";
-      return "dot dot-red";
+    const modificationsCount = (0, import_react.useMemo)(
+      () => notifications.filter((n) => n.status !== "resolved").length,
+      [notifications]
+    );
+    const resolvedCount = (0, import_react.useMemo)(
+      () => notifications.filter((n) => n.status === "resolved").length,
+      [notifications]
+    );
+    const filteredNotifications = (0, import_react.useMemo)(() => {
+      switch (activeTab) {
+        case "resolved":
+          return notifications.filter((n) => n.status === "resolved");
+        case "modifications":
+        default:
+          return notifications.filter((n) => n.status !== "resolved");
+      }
+    }, [notifications, activeTab]);
+    const selectedNotif = (0, import_react.useMemo)(() => {
+      if (!reviewedNotifId)
+        return null;
+      return notifications.find((n) => n.id === reviewedNotifId) || null;
+    }, [notifications, reviewedNotifId]);
+    const handleReview = (notif, e) => {
+      if (e)
+        e.stopPropagation();
+      setReviewedNotifId(notif.id);
+      vscode.postMessage({
+        command: "reviewNotification",
+        notification: notif
+      });
     };
-    const handleFunctionClick = (fn) => {
-      vscode.postMessage({ command: "selectFunction", functionName: fn.name });
-      setFunctions(
-        (prev) => prev.map((f) => ({ ...f, isSelected: f.name === fn.name }))
-      );
+    const handleRecordNew = (notif, e) => {
+      if (e)
+        e.stopPropagation();
+      vscode.postMessage({
+        command: "recordNewMemory",
+        notification: notif
+      });
     };
-    const handleRecord = () => {
-      setRecording(true);
-      vscode.postMessage({ command: "recordMemory" });
-      setTimeout(() => setRecording(false), 2e3);
+    const handleMarkReviewed = (id) => {
+      vscode.postMessage({
+        command: "markReviewed",
+        id
+      });
     };
-    const hasFile = Boolean(fileName);
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "sidebar-root", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "sidebar-header", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "header-label", children: hasFile ? `MEMORIES \u2014 ${fileName.toUpperCase()}` : "MEMORIES \u2014 THIS FILE" }) }),
-      loading ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "sidebar-empty-state", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "loading-spinner" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "empty-subtitle", children: "Fetching functions from backend\u2026" })
-      ] }) : !hasFile ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "sidebar-empty-state", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "empty-icon-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { className: "head-gear-icon", viewBox: "0 0 24 24", width: "36", height: "36", fill: "currentColor", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M12 2C7.03 2 3 6.03 3 11c0 2.48 1.01 4.73 2.65 6.35L5 22h8l2-2h1.5c3.59 0 6.5-2.91 6.5-6.5C23 6.94 18.06 2 12 2zm0 4.5c.34 0 .66.04.97.11l.33.86 1.05.43.78-.53c.47.28.88.65 1.2 1.09l-.49.81.4 1.07.91.24c.07.27.1.55.1.85 0 .3-.03.58-.1.85l-.91.24-.4 1.07.49.81c-.32.44-.73.81-1.2 1.09l-.78-.53-1.05.43-.33.86c-.31.07-.63.11-.97.11s-.66-.04-.97-.11l-.33-.86-1.05-.43-.78.53c-.47-.28-.88-.65-1.2-1.09l.49-.81-.4-1.07-.91-.24c-.07-.27-.1-.55-.1-.85 0-.3.03-.58.1-.85l.91-.24.4-1.07-.49-.81c.32-.44.73-.81 1.2-1.09l.78.53 1.05-.43.33-.86c.31-.07.63-.11.97-.11zm0 3c-1.38 0-2.5 1.12-2.5 2.5s1.12 2.5 2.5 2.5 2.5-1.12 2.5-2.5-1.12-2.5-2.5-2.5z" }) }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "empty-title", children: "No file selected yet" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "empty-subtitle", children: "Please select one to fetch the functions." })
-      ] }) : functions.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "sidebar-empty-state", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "empty-title", children: "No functions found" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "empty-subtitle", children: "No functions detected in this file." })
-      ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", { className: "fn-list", children: functions.map((fn) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-        "li",
-        {
-          className: `fn-item ${fn.isSelected ? "fn-item--selected" : ""}`,
-          onClick: () => handleFunctionClick(fn),
-          children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: dotClass(fn) }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "fn-name", children: fn.name })
-          ]
-        },
-        fn.name
-      )) }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "sidebar-footer", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-        "button",
-        {
-          className: `record-btn ${recording ? "record-btn--active" : ""}`,
-          onClick: handleRecord,
-          disabled: !hasFile,
-          children: recording ? "\u25CF RECORDING\u2026" : "RECORD MEMORY"
-        }
-      ) })
+    const toggleAudio = () => {
+      setIsPlayingAudio((prev) => !prev);
+    };
+    const waveformBars = [
+      30,
+      50,
+      75,
+      40,
+      90,
+      60,
+      80,
+      100,
+      70,
+      45,
+      85,
+      95,
+      65,
+      40,
+      70,
+      90,
+      100,
+      80,
+      55,
+      35,
+      75,
+      85,
+      60,
+      45,
+      65,
+      80,
+      50,
+      30
+    ];
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "notif-center-layout", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "notif-center-main", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "notif-header", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", { className: "notif-title", children: "NOTIFICATION CENTER" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "notif-subtitle", children: "Alerts about code changes affecting recorded memories" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "notif-tabs", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+            "button",
+            {
+              className: `tab-btn ${activeTab === "modifications" ? "tab-btn--active" : ""}`,
+              onClick: () => setActiveTab("modifications"),
+              children: [
+                "Modifications (",
+                modificationsCount,
+                ")"
+              ]
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+            "button",
+            {
+              className: `tab-btn ${activeTab === "resolved" ? "tab-btn--active" : ""}`,
+              onClick: () => setActiveTab("resolved"),
+              children: [
+                "Resolved ",
+                resolvedCount
+              ]
+            }
+          )
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "notif-list", children: filteredNotifications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "empty-state", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "empty-icon", children: "\u2713" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "empty-title", children: "No notifications" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "empty-desc", children: "All memory-linked code changes have been addressed." })
+        ] }) : filteredNotifications.map((notif) => {
+          const isCritical = notif.type === "critical" || notif.status === "critical";
+          const isSelected = selectedNotif?.id === notif.id;
+          return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+            "div",
+            {
+              className: `notif-card ${isCritical ? "notif-card--critical" : "notif-card--normal"} ${isSelected ? "notif-card--selected" : ""}`,
+              onClick: (e) => handleReview(notif, e),
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "notif-badge", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                  "div",
+                  {
+                    className: `badge-icon ${isCritical ? "badge-icon--critical" : ""}`,
+                    children: "!"
+                  }
+                ) }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "notif-content", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card-top-row", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "card-heading", children: notif.title }),
+                    isCritical && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "critical-tag", children: "CRITICAL" })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                    "div",
+                    {
+                      className: "card-location",
+                      onClick: (e) => handleReview(notif, e),
+                      title: "Click to jump to file",
+                      children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "file-name", children: notif.filePath }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dot-divider", children: "\xB7" }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "line-range", children: notif.lineRange })
+                      ]
+                    }
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "card-description", children: notif.description }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "card-footer", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "footer-meta", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "time-ago", children: notif.timestamp }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "affected-memory", children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "teal-dot" }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: notif.affectedAuthor })
+                      ] })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "footer-actions", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                        "button",
+                        {
+                          className: "action-btn action-btn--review",
+                          onClick: (e) => handleReview(notif, e),
+                          children: "Review"
+                        }
+                      ),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                        "button",
+                        {
+                          className: "action-btn action-btn--record",
+                          onClick: (e) => handleRecordNew(notif, e),
+                          children: "Record new"
+                        }
+                      )
+                    ] })
+                  ] })
+                ] })
+              ]
+            },
+            notif.id
+          );
+        }) })
+      ] }),
+      selectedNotif && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "notif-detail-pane", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "detail-header-section", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "detail-header-top", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "detail-section-label", children: "ALERT DETAILS" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "button",
+              {
+                className: "detail-close-btn",
+                onClick: () => setReviewedNotifId(null),
+                title: "Close review pane",
+                children: "\u2715"
+              }
+            )
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { className: "detail-fn-name", children: selectedNotif.functionName }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "detail-file-path", children: selectedNotif.filePath }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "detail-status-pill", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "detail-status-dot" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: selectedNotif.changeType || "Logic changed" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "detail-block", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "detail-block-title", children: "WHAT CHANGED" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "diff-code-box", children: selectedNotif.diffLines && selectedNotif.diffLines.length > 0 ? selectedNotif.diffLines.map((line, idx) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "div",
+            {
+              className: `diff-line diff-line--${line.type}`,
+              children: line.text
+            },
+            idx
+          )) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "diff-fallback", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "diff-line diff-line--del", children: "- previous implementation" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "diff-line diff-line--add", children: "+ updated code logic" })
+          ] }) })
+        ] }),
+        selectedNotif.originalMemory && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "detail-block", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "original-memory-card", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "orig-memory-label", children: "ORIGINAL MEMORY" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "orig-memory-quote", children: selectedNotif.originalMemory.quote }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "audio-player-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "soundwave-container", children: waveformBars.map((height, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "div",
+              {
+                className: `wave-bar ${isPlayingAudio ? "wave-bar--animated" : ""}`,
+                style: {
+                  height: `${height}%`,
+                  animationDelay: `${i % 5 * 0.15}s`
+                }
+              },
+              i
+            )) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              "button",
+              {
+                className: `audio-play-btn ${isPlayingAudio ? "audio-play-btn--playing" : ""}`,
+                onClick: toggleAudio,
+                children: [
+                  isPlayingAudio ? "\u275A\u275A" : "\u25B6",
+                  " ",
+                  selectedNotif.originalMemory.duration
+                ]
+              }
+            )
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "orig-memory-author", children: [
+            selectedNotif.originalMemory.author,
+            " \xB7",
+            " ",
+            selectedNotif.originalMemory.authorInfo
+          ] })
+        ] }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "detail-footer", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "button",
+          {
+            className: "detail-action-btn detail-action-btn--record",
+            onClick: (e) => handleRecordNew(selectedNotif, e),
+            children: "Record new memory"
+          }
+        ) })
+      ] })
     ] });
   }
 
-  // webview/sideBar/index.jsx
+  // webview/modificationNotif/index.jsx
   var import_jsx_runtime2 = __toESM(require_jsx_runtime());
   var root = (0, import_client.createRoot)(document.getElementById("root"));
-  root.render(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SideBar, {}));
+  root.render(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ModificationNotif, {}));
 })();
 /*! Bundled license information:
 

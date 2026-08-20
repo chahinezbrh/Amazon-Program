@@ -36,11 +36,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FunctionHoverProvider = void 0;
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
+const DocPanelProvider_1 = require("./DocPanelProvider");
 class FunctionHoverProvider {
     constructor(context) {
         this.context = context;
+        this.currentName = ''; // ← added
+        this.currentFilePath = ''; // ← added
     }
     async showForFunction(functionName, filePath) {
+        this.currentName = functionName; // ← added — actually stores it
+        this.currentFilePath = filePath; // ← added
         const functionData = await this.fetchFunctionData(functionName, filePath);
         if (!this.panel) {
             this.panel = vscode.window.createWebviewPanel('functionHoverPopup', 'Function Docs', { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, {
@@ -53,15 +58,39 @@ class FunctionHoverProvider {
                 this.panel = undefined;
             });
             this.panel.webview.onDidReceiveMessage((message) => {
-                console.log('Received from webview:', message);
-                // handle message.command: 'playMemory', 'addMemory', 'generateAiDocs', 'writeDocs', 'openFullDocs'
+                if (message.command === 'openFullDocs') {
+                    const meta = {
+                        symbolName: this.currentName,
+                        filePath: this.currentFilePath,
+                        startLine: 0,
+                        endLine: 0,
+                    };
+                    DocPanelProvider_1.DocPanelProvider.show(this.context.extensionUri, meta);
+                    this.fetchDocEntries(meta).then((entries) => {
+                        DocPanelProvider_1.DocPanelProvider.currentPanel?.updateEntries(entries);
+                    });
+                }
+                else {
+                    console.log('Received from webview:', message);
+                }
             });
         }
         this.panel.webview.html = this.getHtml(this.panel.webview);
-        // give the webview a moment to mount before sending data
         setTimeout(() => {
             this.panel?.webview.postMessage({ command: 'setData', data: functionData });
         }, 200);
+    }
+    // ← added — was missing entirely
+    async fetchDocEntries(meta) {
+        // TEMP mock — replace with a real backend call later
+        return [
+            {
+                id: '1',
+                kind: 'written',
+                content: `Docs for ${meta.symbolName}`,
+                createdAt: new Date().toISOString(),
+            },
+        ];
     }
     getHtml(webview) {
         const scriptPath = vscode.Uri.file(path.join(this.context.extensionPath, 'dist', 'webview', 'functionHoverPopup.js'));
@@ -84,7 +113,6 @@ class FunctionHoverProvider {
 </html>`;
     }
     async fetchFunctionData(functionName, filePath) {
-        // TEMP mock — swap for a real fetch() to your backend once it's running
         return {
             id: '1',
             name: functionName,

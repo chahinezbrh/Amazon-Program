@@ -9,7 +9,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/frontend/extension.js",
   "contributes": {
     "commands": [
@@ -26,16 +28,29 @@
         "title": "Test: Show Sidebar"
       },
       {
-  "command": "yourExtension.testPlayMemory",
-  "title": "Test: Show Play Memory"
-}
+        "command": "yourExtension.testPlayMemory",
+        "title": "Test: Show Play Memory"
+      },
+      {
+        "command": "yourExtension.showNotificationCenter",
+        "title": "CMS Memory: Show Notification Center"
+      },
+      {
+        "command": "yourExtension.testModificationNotif",
+        "title": "Test: Show Notification Center"
+      }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "amazonProgram",
           "title": "CMS Memory",
-          "icon": "$(brain)"
+          "icon": "resources/head-gear.svg"
+        },
+        {
+          "id": "amazonProgramNotifications",
+          "title": "Notifications",
+          "icon": "resources/bell.svg"
         }
       ]
     },
@@ -45,7 +60,15 @@
           "type": "webview",
           "id": "amazonProgram.sideBar",
           "name": "Memories — This File",
-          "icon": "$(brain)"
+          "icon": "resources/head-gear.svg"
+        }
+      ],
+      "amazonProgramNotifications": [
+        {
+          "type": "webview",
+          "id": "amazonProgram.notificationsView",
+          "name": "Notifications",
+          "icon": "resources/bell.svg"
         }
       ]
     }

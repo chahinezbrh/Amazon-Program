@@ -48,4 +48,19 @@ esbuild.buildSync({
   outfile: 'dist/webview/playMemory/playMemory.css',
 });
 
+// ── Modification Notification / Notification Center ──────
+esbuild.buildSync({
+  entryPoints: ['webview/modificationNotif/index.jsx'],
+  bundle: true,
+  outfile: 'dist/webview/modificationNotif/modificationNotif.js',
+  loader: { '.jsx': 'jsx', '.css': 'css' },
+  jsx: 'automatic',
+});
+
+esbuild.buildSync({
+  entryPoints: ['webview/modificationNotif/modificationNotif.css'],
+  outfile: 'dist/webview/modificationNotif/modificationNotif.css',
+});
+
 console.log('Webview bundle built.');
+
