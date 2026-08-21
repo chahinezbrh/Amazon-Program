@@ -38,6 +38,18 @@ export function toDocEntries(fn: StoredFunction, filePath: string): DocEntry[] {
     endLine: fn.lineEnd,
   };
 
+  if (fn.sourceDoc?.content.length) {
+    entries.push({
+      id: `${filePath}:${fn.name}:source`,
+      type: 'source',
+      ...loc,
+      content: fromLines(fn.sourceDoc.content),
+      author: 'From source',
+      createdAt: fn.sourceDoc.extractedAt,
+      isStale: false,
+  });
+}
+
   if (fn.writtenDoc?.length) {
     entries.push({
       id: `${filePath}:${fn.name}:written`,
