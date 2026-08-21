@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { HoverProvider } from './frontend/providers/hoverProvider';
 import { showDocPanel } from './frontend/commands/showDocPanel';
 import { SymbolMeta } from './shared/types';
+import { scanRepo } from './frontend/commands/scanRepo';
 
 /** Must stay in sync with activationEvents in package.json. */
 const SUPPORTED_LANGUAGES = [
@@ -33,6 +34,10 @@ export function activate(context: vscode.ExtensionContext) {
       (meta: SymbolMeta) => showDocPanel(context, meta)
     )
   );
+
+  context.subscriptions.push(
+  vscode.commands.registerCommand('docManager.scanRepo', scanRepo)
+);
 
   // -------------------------------------------------------------------------
   // 3. Not built yet.
