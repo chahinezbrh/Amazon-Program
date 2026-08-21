@@ -22,6 +22,13 @@ export interface StoredMemory {
   isStale?: boolean;
 }
 
+export interface StoredSourceDoc {
+  content: string[];
+  commentLine: number;
+  isDocBlock: boolean;
+  extractedAt: string;
+}
+
 export interface StoredFunction {
   name: string;
   lineStart: number;
@@ -42,6 +49,8 @@ export interface StoredFunction {
   confidence?: string;
 
   memories: StoredMemory[];
+
+  sourceDoc?: StoredSourceDoc;
 }
 
 /** All documented functions in one source file, keyed by function NAME only.
