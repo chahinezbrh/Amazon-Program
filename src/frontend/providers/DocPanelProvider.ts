@@ -68,6 +68,11 @@ export class DocPanelProvider {
     this.panel.webview.postMessage({ type: 'entries', payload: entries });
   }
 
+  /** Read by scanRepo so it can refresh the panel after a repo-wide import. */
+  public getCurrentMeta(): SymbolMeta {
+    return this.currentMeta;
+  }
+
   /** Called by the command handler if the lookup fails. */
   public updateError(message: string) {
     this.currentEntries = null;
