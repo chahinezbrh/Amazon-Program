@@ -123,7 +123,7 @@ function sortDocFile(doc: DocFile): DocFile {
     )) {
       sorted[name] = {
         ...fn,
-        memories: [...fn.memories].sort((a, b) => a.id.localeCompare(b.id)),
+        memories: [...(fn.memories ?? [])].sort((a, b) => a.id.localeCompare(b.id)),
       };
     }
     files[filePath] = sorted;
