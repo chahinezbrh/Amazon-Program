@@ -4,8 +4,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 /* global acquireVsCodeApi */
 const vscode = acquireVsCodeApi();
 
-const TYPE_LABEL = { written: 'Written', ai: 'AI docs', voice: 'Voice' };
-const TYPE_ICON = { written: '✎', ai: '✦', voice: '🎙' };
+const TYPE_LABEL = { source: 'Source', written: 'Written', ai: 'AI docs', voice: 'Voice' };
+const TYPE_ICON = { source: '⟨⟩', written: '✎', ai: '✦', voice: '🎙' };
 
 export default function DocPanel() {
   const [meta, setMeta] = useState(null);
@@ -158,9 +158,11 @@ function TextEntry({ entry }) {
   return (
     <div className="text-entry">
       <div className="text-content">{entry.content || '(empty)'}</div>
-      <button className="ghost-btn small" onClick={() => setIsEditing(true)}>
-        Edit
-      </button>
+      {entry.type !== 'source' && (
+        <button className="ghost-btn small" onClick={() => setIsEditing(true)}>
+          Edit
+        </button>
+      )}
     </div>
   );
 }
