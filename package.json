@@ -1,0 +1,85 @@
+{
+  "name": "amazon-program",
+  "displayName": "Doc Manager",
+  "description": "Manage inline documentation: write it, generate it with AI, or record it as voice memos. Detects when code changes semantically and prompts you to update the docs.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:javascriptreact"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "docManager.showDocPanel",
+        "title": "Show Doc"
+      },
+      {
+        "command": "docManager.editDoc",
+        "title": "Write Documentation"
+      },
+      {
+        "command": "docManager.generateDoc",
+        "title": "Generate Documentation with AI"
+      },
+      {
+        "command": "docManager.recordDoc",
+        "title": "Record Voice Documentation"
+      },
+      {
+        "command": "docManager.testShowDocPanel",
+        "title": "Doc Manager: Test Show Doc Panel (mock data)"
+      },
+      {
+        "command": "docManager.scanRepo",
+        "title": "Import Documentation from Comments",
+        "category": "Doc Manager",
+        "icon": "$(sync)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+      {
+        "command": "docManager.scanRepo",
+        "group": "navigation"
+      }
+    ]
+}
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build:webview": "esbuild src/frontend/webviews/docPanel/index.jsx --bundle --outfile=out/frontend/webviews/docPanel/docPanel.js --format=iife && node -e \"require('fs').copyFileSync('src/frontend/webviews/docPanel/docPanel.css','out/frontend/webviews/docPanel/docPanel.css')\"",
+    "build": "npm run compile && npm run build:webview",
+    "watch:webview": "esbuild src/frontend/webviews/docPanel/index.jsx --bundle --outfile=out/frontend/webviews/docPanel/docPanel.js --format=iife --watch",
+    "dev": "concurrently \"npm:watch\" \"npm:watch:webview\"",
+    "pretest": "npm run build",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/express": "^4.17.21",
+    "esbuild": "^0.21.0",
+    "typescript": "^5.4.0",
+    "@vscode/test-electron": "^2.3.9",
+    "mocha": "^10.4.0",
+    "@types/mocha": "^10.0.6",
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "express": "^4.19.0"
+  }
+  
+}
