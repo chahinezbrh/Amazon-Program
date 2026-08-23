@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DocEntry, SymbolMeta, WebviewToExtensionMessage } from '../../shared/types';
+import { getDocsForSymbol, saveDoc, currentAuthor } from '../services/docClient';
 
 /**
  * Manages the "Show Doc" side panel: a single reusable webview that
@@ -51,7 +52,7 @@ export class DocPanelProvider {
           // NOTE: assumes your build (esbuild/webpack) emits the bundled
           // docPanel.js + docPanel.css into out/frontend/webviews/docPanel.
           // Adjust if your build outputs elsewhere.
-          vscode.Uri.joinPath(extensionUri, 'dist', 'webview', 'docPanel'),
+          vscode.Uri.joinPath(extensionUri, 'out', 'frontend', 'webviews', 'docPanel'),
           vscode.Uri.joinPath(extensionUri, 'assets'), // folder where recorded audio lives
         ],
       }
@@ -65,6 +66,11 @@ export class DocPanelProvider {
     this.currentEntries = entries;
     this.currentError = undefined;
     this.panel.webview.postMessage({ type: 'entries', payload: entries });
+  }
+
+  /** Read by scanRepo so it can refresh the panel after a repo-wide import. */
+  public getCurrentMeta(): SymbolMeta {
+    return this.currentMeta;
   }
 
   /** Called by the command handler if the lookup fails. */
@@ -144,15 +150,36 @@ export class DocPanelProvider {
         });
         break;
       }
-    }
+
+    case 'saveWritten': {
+    if (!this.currentMeta) break;
+
+    // 1. write to disk
+    await saveDoc({
+      type: 'written',
+      meta: this.currentMeta,
+      content: message.content,
+      author: currentAuthor(),
+    });
+
+    // 2. read back what's now on disk — this line creates `fresh`
+    const fresh = await getDocsForSymbol(this.currentMeta);
+
+    // 3. update the cache and tell the webview to re-render
+    this.currentEntries = fresh;
+    this.panel.webview.postMessage({ type: 'entries', payload: fresh });
+    break;
   }
+}
+}   
+
 
   private getHtml(webview: vscode.Webview): string {
     const cssUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'docPanel', 'docPanel.css')
-    ); //  LOOK HERE : i guess here is the problem remove out frontend and before webviews add dist but still to chekc with claude
+      vscode.Uri.joinPath(this.extensionUri, 'out', 'frontend', 'webviews', 'docPanel', 'docPanel.css')
+    );
     const jsUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'docPanel', 'docPanel.js')
+      vscode.Uri.joinPath(this.extensionUri, 'out', 'frontend', 'webviews', 'docPanel', 'docPanel.js')
     );
     const nonce = getNonce();
 
