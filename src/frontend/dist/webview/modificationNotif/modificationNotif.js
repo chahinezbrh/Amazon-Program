@@ -24552,7 +24552,6 @@
     ]);
     const [activeTab, setActiveTab] = (0, import_react.useState)("modifications");
     const [reviewedNotifId, setReviewedNotifId] = (0, import_react.useState)(null);
-    const [isPlayingAudio, setIsPlayingAudio] = (0, import_react.useState)(false);
     (0, import_react.useEffect)(() => {
       vscode.postMessage({ command: "ready" });
       const messageHandler = (event) => {
@@ -24611,45 +24610,6 @@
         notification: notif
       });
     };
-    const handleMarkReviewed = (id) => {
-      vscode.postMessage({
-        command: "markReviewed",
-        id
-      });
-    };
-    const toggleAudio = () => {
-      setIsPlayingAudio((prev) => !prev);
-    };
-    const waveformBars = [
-      30,
-      50,
-      75,
-      40,
-      90,
-      60,
-      80,
-      100,
-      70,
-      45,
-      85,
-      95,
-      65,
-      40,
-      70,
-      90,
-      100,
-      80,
-      55,
-      35,
-      75,
-      85,
-      60,
-      45,
-      65,
-      80,
-      50,
-      30
-    ];
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "notif-center-layout", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "notif-center-main", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "notif-header", children: [
@@ -24789,41 +24749,6 @@
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "diff-line diff-line--add", children: "+ updated code logic" })
           ] }) })
         ] }),
-        selectedNotif.originalMemory && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "detail-block", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "original-memory-card", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "orig-memory-label", children: "ORIGINAL MEMORY" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "orig-memory-quote", children: selectedNotif.originalMemory.quote }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "audio-player-row", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "soundwave-container", children: waveformBars.map((height, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-              "div",
-              {
-                className: `wave-bar ${isPlayingAudio ? "wave-bar--animated" : ""}`,
-                style: {
-                  height: `${height}%`,
-                  animationDelay: `${i % 5 * 0.15}s`
-                }
-              },
-              i
-            )) }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-              "button",
-              {
-                className: `audio-play-btn ${isPlayingAudio ? "audio-play-btn--playing" : ""}`,
-                onClick: toggleAudio,
-                children: [
-                  isPlayingAudio ? "\u275A\u275A" : "\u25B6",
-                  " ",
-                  selectedNotif.originalMemory.duration
-                ]
-              }
-            )
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "orig-memory-author", children: [
-            selectedNotif.originalMemory.author,
-            " \xB7",
-            " ",
-            selectedNotif.originalMemory.authorInfo
-          ] })
-        ] }) }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "detail-footer", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
           "button",
           {

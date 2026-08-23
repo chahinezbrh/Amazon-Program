@@ -90,7 +90,6 @@ export default function ModificationNotif() {
 
   const [activeTab, setActiveTab] = useState('modifications');
   const [reviewedNotifId, setReviewedNotifId] = useState(null);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   useEffect(() => {
     vscode.postMessage({ command: 'ready' });
@@ -152,23 +151,6 @@ export default function ModificationNotif() {
       notification: notif,
     });
   };
-
-  const handleMarkReviewed = (id) => {
-    vscode.postMessage({
-      command: 'markReviewed',
-      id,
-    });
-  };
-
-  const toggleAudio = () => {
-    setIsPlayingAudio((prev) => !prev);
-  };
-
-  // Generate soundwave bar heights
-  const waveformBars = [
-    30, 50, 75, 40, 90, 60, 80, 100, 70, 45, 85, 95, 65, 40, 70, 90, 100, 80,
-    55, 35, 75, 85, 60, 45, 65, 80, 50, 30,
-  ];
 
   return (
     <div className="notif-center-layout">
@@ -334,45 +316,6 @@ export default function ModificationNotif() {
               )}
             </div>
           </div>
-
-          {/* ORIGINAL MEMORY */}
-          {selectedNotif.originalMemory && (
-            <div className="detail-block">
-              <div className="original-memory-card">
-                <div className="orig-memory-label">ORIGINAL MEMORY</div>
-                <div className="orig-memory-quote">
-                  {selectedNotif.originalMemory.quote}
-                </div>
-
-                {/* Sound wave player */}
-                <div className="audio-player-row">
-                  <div className="soundwave-container">
-                    {waveformBars.map((height, i) => (
-                      <div
-                        key={i}
-                        className={`wave-bar ${isPlayingAudio ? 'wave-bar--animated' : ''}`}
-                        style={{
-                          height: `${height}%`,
-                          animationDelay: `${(i % 5) * 0.15}s`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <button
-                    className={`audio-play-btn ${isPlayingAudio ? 'audio-play-btn--playing' : ''}`}
-                    onClick={toggleAudio}
-                  >
-                    {isPlayingAudio ? '❚❚' : '▶'} {selectedNotif.originalMemory.duration}
-                  </button>
-                </div>
-
-                <div className="orig-memory-author">
-                  {selectedNotif.originalMemory.author} ·{' '}
-                  {selectedNotif.originalMemory.authorInfo}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Action Footer */}
           <div className="detail-footer">
