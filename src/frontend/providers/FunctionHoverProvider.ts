@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { SymbolMeta, DocEntry } from '../../shared/types';
+import { SymbolMeta, DocEntry, DocType } from '../../shared/types';
 import { DocPanelProvider } from './DocPanelProvider';
+import { getDocsForSymbol } from '../services/docClient';
 
 export class FunctionHoverProvider {
   private panel: vscode.WebviewPanel | undefined;
@@ -60,17 +61,26 @@ export class FunctionHoverProvider {
     }, 200);
   }
 
-  // ← added — was missing entirely
   private async fetchDocEntries(meta: SymbolMeta): Promise<DocEntry[]> {
-    // TEMP mock — replace with a real backend call later
-    return [
-      {
-        id: '1',
-        kind: 'written',
-        content: `Docs for ${meta.symbolName}`,
-        createdAt: new Date().toISOString(),
-      },
-    ];
+    try {
+      return await getDocsForSymbol(meta);
+    } catch {
+      // Fallback mock if doc service is unavailable or running in standalone test
+      return [
+        {
+          id: '1',
+          type: 'written',
+          content: `Docs for ${meta.symbolName}`,
+          author: 'Unknown',
+          createdAt: new Date().toISOString(),
+          symbolName: meta.symbolName,
+          filePath: meta.filePath,
+          startLine: meta.startLine,
+          endLine: meta.endLine,
+          isStale: false,
+        },
+      ];
+    }
   }
 
   private getHtml(webview: vscode.Webview): string {

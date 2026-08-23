@@ -29,21 +29,39 @@ export function activate(context: vscode.ExtensionContext) {
       const mockEntries: DocEntry[] = [
         {
           id: '1',
-          kind: 'written',
+          type: 'written',
           content: 'This function checks the user session token and returns the authenticated user.',
+          author: 'Unknown',
           createdAt: new Date().toISOString(),
+          symbolName: mockMeta.symbolName,
+          filePath: mockMeta.filePath,
+          startLine: mockMeta.startLine,
+          endLine: mockMeta.endLine,
+          isStale: false
         },
         {
           id: '2',
-          kind: 'ai',
+          type: 'ai',
           content: 'AI-generated summary: validates a bearer token against the session store.',
+          author: 'Unknown',
           createdAt: new Date().toISOString(),
+          symbolName: mockMeta.symbolName,
+          filePath: mockMeta.filePath,
+          startLine: mockMeta.startLine,
+          endLine: mockMeta.endLine,
+          isStale: false
         },
         {
           id: '3',
-          kind: 'voice',
+          type: 'voice',
           audioPath: 'C:\\path\\to\\some\\recording.mp3',
+          author: 'Unknown',
           createdAt: new Date().toISOString(),
+          symbolName: mockMeta.symbolName,
+          filePath: mockMeta.filePath,
+          startLine: mockMeta.startLine,
+          endLine: mockMeta.endLine,
+          isStale: false
         },
       ];
 
@@ -186,4 +204,4 @@ export function activate(context: vscode.ExtensionContext) {
   }, 300);
 }
 
-export function deactivate() {}
+export function deactivate() {}
