@@ -118,16 +118,14 @@ class ConnectRepoProvider {
     }
     async runIndexing(repoUrl) {
         let rootPath;
+        let clonedIntoNewFolder = false; // track whether we need to switch the workspace afterward
         if (repoUrl && repoUrl.trim().length > 0) {
-            // A GitHub URL was pasted.
             const workspaceFolders = vscode.workspace.workspaceFolders;
             let destinationFolder;
             if (workspaceFolders && workspaceFolders.length > 0) {
-                // A folder is already open — clone directly into it, no picker needed.
                 destinationFolder = workspaceFolders[0].uri.fsPath;
             }
             else {
-                // No folder open — ask the user to pick a destination via the native OS picker.
                 const selected = await vscode.window.showOpenDialog({
                     canSelectFiles: false,
                     canSelectFolders: true,
@@ -144,6 +142,7 @@ class ConnectRepoProvider {
                     return;
                 }
                 destinationFolder = selected[0].fsPath;
+                clonedIntoNewFolder = true; // no workspace was open before — we'll need to open one after
             }
             try {
                 this.panel.webview.postMessage({
@@ -165,7 +164,6 @@ class ConnectRepoProvider {
             }
         }
         else {
-            // No URL pasted — index the currently open workspace folder directly.
             const workspaceFolders = vscode.workspace.workspaceFolders;
             if (!workspaceFolders || workspaceFolders.length === 0) {
                 this.panel.webview.postMessage({
@@ -197,7 +195,12 @@ class ConnectRepoProvider {
                 message: 'Repository indexed successfully!',
                 stats: { filesCount, functionsCount },
             });
-            vscode.window.showInformationMessage(`✓ CMS Memory: Indexed ${functionsCount} functions across ${filesCount} files. Location: ${rootPath}`);
+            vscode.window.showInformationMessage(`✓ CMS Memory: Indexed ${functionsCount} functions across ${filesCount} files.`);
+            // If we cloned into a folder that wasn't already the open workspace,
+            // switch VS Code to open it now — this reloads the window.
+            if (clonedIntoNewFolder) {
+                vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(rootPath));
+            }
         }
         catch (err) {
             console.error('[ConnectRepoProvider] Error indexing repo:', err);

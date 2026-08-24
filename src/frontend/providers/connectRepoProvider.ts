@@ -111,111 +111,115 @@ export class ConnectRepoProvider {
         }
     }
 
-   private async runIndexing(repoUrl?: string) {
-  let rootPath: string;
+    private async runIndexing(repoUrl?: string) {
+        let rootPath: string;
+        let clonedIntoNewFolder = false; // track whether we need to switch the workspace afterward
 
-  if (repoUrl && repoUrl.trim().length > 0) {
-    // A GitHub URL was pasted.
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    let destinationFolder: string;
+        if (repoUrl && repoUrl.trim().length > 0) {
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            let destinationFolder: string;
 
-    if (workspaceFolders && workspaceFolders.length > 0) {
-      // A folder is already open — clone directly into it, no picker needed.
-      destinationFolder = workspaceFolders[0].uri.fsPath;
-    } else {
-      // No folder open — ask the user to pick a destination via the native OS picker.
-      const selected = await vscode.window.showOpenDialog({
-        canSelectFiles: false,
-        canSelectFolders: true,
-        canSelectMany: false,
-        openLabel: 'Select folder',
-        title: 'Choose where to clone the repository',
-      });
+            if (workspaceFolders && workspaceFolders.length > 0) {
+                destinationFolder = workspaceFolders[0].uri.fsPath;
+            } else {
+                const selected = await vscode.window.showOpenDialog({
+                    canSelectFiles: false,
+                    canSelectFolders: true,
+                    canSelectMany: false,
+                    openLabel: 'Select folder',
+                    title: 'Choose where to clone the repository',
+                });
 
-      if (!selected || selected.length === 0) {
-        this.panel.webview.postMessage({
-          command: 'setStatus',
-          status: 'error',
-          error: 'No folder selected. Choose a destination folder to continue.',
-        });
-        return;
-      }
+                if (!selected || selected.length === 0) {
+                    this.panel.webview.postMessage({
+                        command: 'setStatus',
+                        status: 'error',
+                        error: 'No folder selected. Choose a destination folder to continue.',
+                    });
+                    return;
+                }
 
-      destinationFolder = selected[0].fsPath;
+                destinationFolder = selected[0].fsPath;
+                clonedIntoNewFolder = true; // no workspace was open before — we'll need to open one after
+            }
+
+            try {
+                this.panel.webview.postMessage({
+                    command: 'setStatus',
+                    status: 'loading',
+                    message: 'Cloning repository…',
+                });
+
+                rootPath = await cloneOrUpdateRepo(destinationFolder, repoUrl.trim(), (message) => {
+                    this.panel.webview.postMessage({ command: 'setStatus', status: 'loading', message });
+                });
+            } catch (err: any) {
+                this.panel.webview.postMessage({
+                    command: 'setStatus',
+                    status: 'error',
+                    error: err?.message || 'Failed to clone the repository. Check the URL and try again.',
+                });
+                return;
+            }
+        } else {
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (!workspaceFolders || workspaceFolders.length === 0) {
+                this.panel.webview.postMessage({
+                    command: 'setStatus',
+                    status: 'error',
+                    error: 'No open workspace folder found. Open a folder first, or paste a GitHub URL to clone one.',
+                });
+                return;
+            }
+            rootPath = workspaceFolders[0].uri.fsPath;
+        }
+
+        try {
+            this.panel.webview.postMessage({
+                command: 'setStatus',
+                status: 'loading',
+                message: 'Scanning files and extracting functions…',
+            });
+
+            const records = await createFunctionRecords(rootPath);
+
+            const filesCount = Object.keys(records.files).length;
+            const functionsCount = Object.values(records.files).reduce(
+                (acc, list) => acc + list.length,
+                0
+            );
+
+            const resolvedRepoUrl = repoUrl?.trim() || (await getRemoteUrl(rootPath));
+            await writeRepoConfig(rootPath, {
+                repoUrl: resolvedRepoUrl,
+                connectedAt: new Date().toISOString(),
+            });
+
+            this.panel.webview.postMessage({
+                command: 'setStatus',
+                status: 'success',
+                message: 'Repository indexed successfully!',
+                stats: { filesCount, functionsCount },
+            });
+
+            vscode.window.showInformationMessage(
+                `✓ CMS Memory: Indexed ${functionsCount} functions across ${filesCount} files.`
+            );
+
+            // If we cloned into a folder that wasn't already the open workspace,
+            // switch VS Code to open it now — this reloads the window.
+            if (clonedIntoNewFolder) {
+                vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(rootPath));
+            }
+        } catch (err: any) {
+            console.error('[ConnectRepoProvider] Error indexing repo:', err);
+            this.panel.webview.postMessage({
+                command: 'setStatus',
+                status: 'error',
+                error: err?.message || 'An unexpected error occurred while parsing the repository.',
+            });
+        }
     }
-
-    try {
-      this.panel.webview.postMessage({
-        command: 'setStatus',
-        status: 'loading',
-        message: 'Cloning repository…',
-      });
-
-      rootPath = await cloneOrUpdateRepo(destinationFolder, repoUrl.trim(), (message) => {
-        this.panel.webview.postMessage({ command: 'setStatus', status: 'loading', message });
-      });
-    } catch (err: any) {
-      this.panel.webview.postMessage({
-        command: 'setStatus',
-        status: 'error',
-        error: err?.message || 'Failed to clone the repository. Check the URL and try again.',
-      });
-      return;
-    }
-  } else {
-    // No URL pasted — index the currently open workspace folder directly.
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      this.panel.webview.postMessage({
-        command: 'setStatus',
-        status: 'error',
-        error: 'No open workspace folder found. Open a folder first, or paste a GitHub URL to clone one.',
-      });
-      return;
-    }
-    rootPath = workspaceFolders[0].uri.fsPath;
-  }
-
-  try {
-    this.panel.webview.postMessage({
-      command: 'setStatus',
-      status: 'loading',
-      message: 'Scanning files and extracting functions…',
-    });
-
-    const records = await createFunctionRecords(rootPath);
-
-    const filesCount = Object.keys(records.files).length;
-    const functionsCount = Object.values(records.files).reduce(
-      (acc, list) => acc + list.length,
-      0
-    );
-
-    const resolvedRepoUrl = repoUrl?.trim() || (await getRemoteUrl(rootPath));
-    await writeRepoConfig(rootPath, {
-      repoUrl: resolvedRepoUrl,
-      connectedAt: new Date().toISOString(),
-    });
-
-    this.panel.webview.postMessage({
-      command: 'setStatus',
-      status: 'success',
-      message: 'Repository indexed successfully!',
-      stats: { filesCount, functionsCount },
-    });
-
-    vscode.window.showInformationMessage(
-      `✓ CMS Memory: Indexed ${functionsCount} functions across ${filesCount} files. Location: ${rootPath}`
-    );
-  } catch (err: any) {
-    console.error('[ConnectRepoProvider] Error indexing repo:', err);
-    this.panel.webview.postMessage({
-      command: 'setStatus',
-      status: 'error',
-      error: err?.message || 'An unexpected error occurred while parsing the repository.',
-    });
-  }
-}
 
     public dispose() {
         ConnectRepoProvider.currentPanel = undefined;
