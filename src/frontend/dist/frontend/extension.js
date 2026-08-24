@@ -41,8 +41,20 @@ const DocPanelProvider_1 = require("./providers/DocPanelProvider");
 const sideBarProvider_1 = require("./providers/sideBarProvider");
 const playMemoryProvider_1 = require("./providers/playMemoryProvider");
 const modificationNotifProvider_1 = require("./providers/modificationNotifProvider");
+const connectRepoProvider_1 = require("./providers/connectRepoProvider");
 function activate(context) {
     const hoverProvider = new FunctionHoverProvider_1.FunctionHoverProvider(context);
+    // Check if workspace functions are indexed on first run; prompt if not
+    connectRepoProvider_1.ConnectRepoProvider.checkAndPrompt(context);
+    const connectRepoCommand = vscode.commands.registerCommand('yourExtension.connectRepo', () => {
+        connectRepoProvider_1.ConnectRepoProvider.show(context);
+    });
+    // ── Test command — same as connectRepoCommand for now, kept
+    // separate so it can diverge later (e.g. mock data) without
+    // touching the "real" entry point.
+    const testConnectRepoCommand = vscode.commands.registerCommand('yourExtension.testConnectRepo', () => {
+        connectRepoProvider_1.ConnectRepoProvider.show(context);
+    });
     const testPopupCommand = vscode.commands.registerCommand('yourExtension.testPopup', () => {
         hoverProvider.showForFunction('authenticateUser', 'src/auth/middleware.js');
     });
@@ -54,26 +66,43 @@ function activate(context) {
             endLine: 25,
         };
         DocPanelProvider_1.DocPanelProvider.show(context.extensionUri, mockMeta);
-        // simulate the async doc-entries lookup resolving shortly after the panel opens
         setTimeout(() => {
             const mockEntries = [
                 {
                     id: '1',
-                    kind: 'written',
+                    type: 'written',
                     content: 'This function checks the user session token and returns the authenticated user.',
+                    author: 'Unknown',
                     createdAt: new Date().toISOString(),
+                    symbolName: mockMeta.symbolName,
+                    filePath: mockMeta.filePath,
+                    startLine: mockMeta.startLine,
+                    endLine: mockMeta.endLine,
+                    isStale: false
                 },
                 {
                     id: '2',
-                    kind: 'ai',
+                    type: 'ai',
                     content: 'AI-generated summary: validates a bearer token against the session store.',
+                    author: 'Unknown',
                     createdAt: new Date().toISOString(),
+                    symbolName: mockMeta.symbolName,
+                    filePath: mockMeta.filePath,
+                    startLine: mockMeta.startLine,
+                    endLine: mockMeta.endLine,
+                    isStale: false
                 },
                 {
                     id: '3',
-                    kind: 'voice',
+                    type: 'voice',
                     audioPath: 'C:\\path\\to\\some\\recording.mp3',
+                    author: 'Unknown',
                     createdAt: new Date().toISOString(),
+                    symbolName: mockMeta.symbolName,
+                    filePath: mockMeta.filePath,
+                    startLine: mockMeta.startLine,
+                    endLine: mockMeta.endLine,
+                    isStale: false
                 },
             ];
             DocPanelProvider_1.DocPanelProvider.currentPanel?.updateEntries(mockEntries);
@@ -99,7 +128,6 @@ function activate(context) {
     const testModificationNotifCommand = vscode.commands.registerCommand('yourExtension.testModificationNotif', () => {
         modificationNotifProvider_1.ModificationNotifProvider.show(context.extensionUri, 'all');
     });
-    // Activity bar notifications view resolves to host notification center launcher
     const notificationsWebviewProvider = {
         resolveWebviewView(webviewView) {
             webviewView.webview.options = {
@@ -162,7 +190,6 @@ function activate(context) {
             function openCenter() {
               vscode.postMessage({ command: 'open' });
             }
-            // Also open on first click in view
             document.body.addEventListener('click', () => {
               vscode.postMessage({ command: 'open' });
             }, { once: true });
@@ -177,8 +204,7 @@ function activate(context) {
         },
     };
     const notificationsView = vscode.window.registerWebviewViewProvider('amazonProgram.notificationsView', notificationsWebviewProvider);
-    context.subscriptions.push(testPopupCommand, testDocPanelCommand, sideBarView, testSideBarCommand, testPlayMemoryCommand, showNotifCenterCommand, testModificationNotifCommand, notificationsView);
-    // Focus the sidebar view on startup so the user sees it immediately
+    context.subscriptions.push(connectRepoCommand, testConnectRepoCommand, testPopupCommand, testDocPanelCommand, sideBarView, testSideBarCommand, testPlayMemoryCommand, showNotifCenterCommand, testModificationNotifCommand, notificationsView);
     setTimeout(() => {
         vscode.commands.executeCommand(`${sideBarProvider_1.SideBarProvider.viewId}.focus`).then(undefined, () => { });
     }, 300);

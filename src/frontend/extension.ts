@@ -5,10 +5,31 @@ import { SideBarProvider } from './providers/sideBarProvider';
 import { SymbolMeta, DocEntry } from '../shared/types';
 import { PlayMemoryProvider } from './providers/playMemoryProvider';
 import { ModificationNotifProvider } from './providers/modificationNotifProvider';
-
+import { ConnectRepoProvider } from './providers/connectRepoProvider';
 
 export function activate(context: vscode.ExtensionContext) {
   const hoverProvider = new FunctionHoverProvider(context);
+
+  // Check if workspace functions are indexed on first run; prompt if not
+  ConnectRepoProvider.checkAndPrompt(context);
+
+  const connectRepoCommand = vscode.commands.registerCommand(
+    'yourExtension.connectRepo',
+    () => {
+      ConnectRepoProvider.show(context);
+
+    }
+  );
+
+  // ── Test command — same as connectRepoCommand for now, kept
+  // separate so it can diverge later (e.g. mock data) without
+  // touching the "real" entry point.
+  const testConnectRepoCommand = vscode.commands.registerCommand(
+    'yourExtension.testConnectRepo',
+    () => {
+      ConnectRepoProvider.show(context);
+    }
+  );
 
   const testPopupCommand = vscode.commands.registerCommand('yourExtension.testPopup', () => {
     hoverProvider.showForFunction('authenticateUser', 'src/auth/middleware.js');
@@ -24,7 +45,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     DocPanelProvider.show(context.extensionUri, mockMeta);
 
-    // simulate the async doc-entries lookup resolving shortly after the panel opens
     setTimeout(() => {
       const mockEntries: DocEntry[] = [
         {
@@ -103,7 +123,6 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  // Activity bar notifications view resolves to host notification center launcher
   const notificationsWebviewProvider: vscode.WebviewViewProvider = {
     resolveWebviewView(webviewView) {
       webviewView.webview.options = {
@@ -166,7 +185,6 @@ export function activate(context: vscode.ExtensionContext) {
             function openCenter() {
               vscode.postMessage({ command: 'open' });
             }
-            // Also open on first click in view
             document.body.addEventListener('click', () => {
               vscode.postMessage({ command: 'open' });
             }, { once: true });
@@ -188,6 +206,8 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    connectRepoCommand,
+    testConnectRepoCommand,
     testPopupCommand,
     testDocPanelCommand,
     sideBarView,
@@ -198,10 +218,9 @@ export function activate(context: vscode.ExtensionContext) {
     notificationsView
   );
 
-  // Focus the sidebar view on startup so the user sees it immediately
   setTimeout(() => {
-    vscode.commands.executeCommand(`${SideBarProvider.viewId}.focus`).then(undefined, () => {});
+    vscode.commands.executeCommand(`${SideBarProvider.viewId}.focus`).then(undefined, () => { });
   }, 300);
 }
 
-export function deactivate() {}
+export function deactivate() { }

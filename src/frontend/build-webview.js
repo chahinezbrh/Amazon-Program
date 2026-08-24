@@ -62,5 +62,19 @@ esbuild.buildSync({
   outfile: 'dist/webview/modificationNotif/modificationNotif.css',
 });
 
+// ── Connect Repo ──────────────────────────────────────────
+esbuild.buildSync({
+  entryPoints: ['webview/connectRepo/index.jsx'],
+  bundle: true,
+  outfile: 'dist/webview/connectRepo/connectRepo.js',
+  loader: { '.jsx': 'jsx', '.css': 'css' },
+  jsx: 'automatic',
+});
+
+esbuild.buildSync({
+  entryPoints: ['webview/connectRepo/connectRepo.css'],
+  outfile: 'dist/webview/connectRepo/connectRepo.css',
+});
+
 console.log('Webview bundle built.');
 

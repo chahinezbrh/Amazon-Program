@@ -1,0 +1,265 @@
+import * as vscode from 'vscode';
+import { promises as fs } from 'fs';
+import { createFunctionRecords, functionRecordsPathFor } from '../../backend/services/createFunctionRecords';
+import { SideBarProvider } from './sideBarProvider';
+import { cloneOrUpdateRepo, getRemoteUrl } from '../services/cloneRepo';
+import { writeRepoConfig } from '../services/repoConfig';
+
+/**
+ * ConnectRepoProvider — Manages the "Connect your repo" first-time onboarding webview.
+ *
+ * Shown when the user opens a workspace for the first time without an existing
+ * .funcmanager/functions.json file, or triggered manually via command.
+ */
+export class ConnectRepoProvider {
+    public static currentPanel: ConnectRepoProvider | undefined;
+    private static readonly viewType = 'amazonProgram.connectRepo';
+
+    private readonly panel: vscode.WebviewPanel;
+    private disposables: vscode.Disposable[] = [];
+
+    /**
+     * Checks if the workspace already has function records; if not, opens the Connect Repo panel.
+     */
+    public static async checkAndPrompt(context: vscode.ExtensionContext) {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            // No folder open — still show the panel, just for the "paste a GitHub URL" path.
+            // Connecting via "open workspace" simply won't be available until a folder is opened.
+            ConnectRepoProvider.show(context);
+            return;
+        }
+
+        const rootPath = workspaceFolders[0].uri.fsPath;
+        const recordsPath = functionRecordsPathFor(rootPath);
+
+        try {
+            await fs.access(recordsPath);
+            // Already indexed for this workspace — don't show the panel automatically
+        } catch {
+            ConnectRepoProvider.show(context);
+        }
+    }
+
+    /**
+     * Opens or reveals the Connect Repo panel.
+     */
+    public static show(context: vscode.ExtensionContext) {
+        const column = vscode.ViewColumn.Active;
+
+        if (ConnectRepoProvider.currentPanel) {
+            ConnectRepoProvider.currentPanel.panel.reveal(column);
+            return;
+        }
+
+        const panel = vscode.window.createWebviewPanel(
+            ConnectRepoProvider.viewType,
+            'Connect Your Repo',
+            column,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true,
+                localResourceRoots: [
+                    vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview', 'connectRepo'),
+                ],
+            }
+        );
+
+        ConnectRepoProvider.currentPanel = new ConnectRepoProvider(panel, context);
+    }
+
+    private constructor(
+        panel: vscode.WebviewPanel,
+        private readonly context: vscode.ExtensionContext
+    ) {
+        this.panel = panel;
+
+        this.panel.webview.html = this.getHtml(this.panel.webview);
+
+        this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+
+        this.panel.webview.onDidReceiveMessage(
+            (message) => this.handleMessage(message),
+            null,
+            this.disposables
+        );
+    }
+
+    private async handleMessage(message: { command: string; repoUrl?: string;[key: string]: any }) {
+        switch (message.command) {
+            case 'ready': {
+                const workspaceFolders = vscode.workspace.workspaceFolders;
+                const workspaceName = workspaceFolders?.[0]?.name || '';
+                this.panel.webview.postMessage({
+                    command: 'initData',
+                    workspaceName,
+                });
+                break;
+            }
+
+            case 'connectRepo': {
+                await this.runIndexing(message.repoUrl);
+                break;
+            }
+
+            case 'close': {
+                this.dispose();
+                vscode.commands.executeCommand(`${SideBarProvider.viewId}.focus`).then(undefined, () => { });
+                break;
+            }
+        }
+    }
+
+   private async runIndexing(repoUrl?: string) {
+  let rootPath: string;
+
+  if (repoUrl && repoUrl.trim().length > 0) {
+    // A GitHub URL was pasted.
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    let destinationFolder: string;
+
+    if (workspaceFolders && workspaceFolders.length > 0) {
+      // A folder is already open — clone directly into it, no picker needed.
+      destinationFolder = workspaceFolders[0].uri.fsPath;
+    } else {
+      // No folder open — ask the user to pick a destination via the native OS picker.
+      const selected = await vscode.window.showOpenDialog({
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+        openLabel: 'Select folder',
+        title: 'Choose where to clone the repository',
+      });
+
+      if (!selected || selected.length === 0) {
+        this.panel.webview.postMessage({
+          command: 'setStatus',
+          status: 'error',
+          error: 'No folder selected. Choose a destination folder to continue.',
+        });
+        return;
+      }
+
+      destinationFolder = selected[0].fsPath;
+    }
+
+    try {
+      this.panel.webview.postMessage({
+        command: 'setStatus',
+        status: 'loading',
+        message: 'Cloning repository…',
+      });
+
+      rootPath = await cloneOrUpdateRepo(destinationFolder, repoUrl.trim(), (message) => {
+        this.panel.webview.postMessage({ command: 'setStatus', status: 'loading', message });
+      });
+    } catch (err: any) {
+      this.panel.webview.postMessage({
+        command: 'setStatus',
+        status: 'error',
+        error: err?.message || 'Failed to clone the repository. Check the URL and try again.',
+      });
+      return;
+    }
+  } else {
+    // No URL pasted — index the currently open workspace folder directly.
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      this.panel.webview.postMessage({
+        command: 'setStatus',
+        status: 'error',
+        error: 'No open workspace folder found. Open a folder first, or paste a GitHub URL to clone one.',
+      });
+      return;
+    }
+    rootPath = workspaceFolders[0].uri.fsPath;
+  }
+
+  try {
+    this.panel.webview.postMessage({
+      command: 'setStatus',
+      status: 'loading',
+      message: 'Scanning files and extracting functions…',
+    });
+
+    const records = await createFunctionRecords(rootPath);
+
+    const filesCount = Object.keys(records.files).length;
+    const functionsCount = Object.values(records.files).reduce(
+      (acc, list) => acc + list.length,
+      0
+    );
+
+    const resolvedRepoUrl = repoUrl?.trim() || (await getRemoteUrl(rootPath));
+    await writeRepoConfig(rootPath, {
+      repoUrl: resolvedRepoUrl,
+      connectedAt: new Date().toISOString(),
+    });
+
+    this.panel.webview.postMessage({
+      command: 'setStatus',
+      status: 'success',
+      message: 'Repository indexed successfully!',
+      stats: { filesCount, functionsCount },
+    });
+
+    vscode.window.showInformationMessage(
+      `✓ CMS Memory: Indexed ${functionsCount} functions across ${filesCount} files. Location: ${rootPath}`
+    );
+  } catch (err: any) {
+    console.error('[ConnectRepoProvider] Error indexing repo:', err);
+    this.panel.webview.postMessage({
+      command: 'setStatus',
+      status: 'error',
+      error: err?.message || 'An unexpected error occurred while parsing the repository.',
+    });
+  }
+}
+
+    public dispose() {
+        ConnectRepoProvider.currentPanel = undefined;
+        this.panel.dispose();
+        while (this.disposables.length) {
+            const d = this.disposables.pop();
+            if (d) d.dispose();
+        }
+    }
+
+    private getHtml(webview: vscode.Webview): string {
+        const jsUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview', 'connectRepo', 'connectRepo.js')
+        );
+        const cssUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview', 'connectRepo', 'connectRepo.css')
+        );
+        const nonce = getNonce();
+
+        return /* html */ `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none';
+             img-src ${webview.cspSource} data:;
+             style-src ${webview.cspSource} 'unsafe-inline';
+             script-src 'nonce-${nonce}';" />
+  <link href="${cssUri}" rel="stylesheet" />
+  <title>Connect your repo</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script nonce="${nonce}" src="${jsUri}"></script>
+</body>
+</html>`;
+    }
+}
+
+function getNonce(): string {
+    let text = '';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < 32; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
+}

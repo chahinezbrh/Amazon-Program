@@ -1093,7 +1093,7 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useReducer(reducer, initialArg, init);
           }
-          function useRef2(initialValue) {
+          function useRef(initialValue) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
@@ -1109,7 +1109,7 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useLayoutEffect(create, deps);
           }
-          function useCallback2(callback, deps) {
+          function useCallback(callback, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useCallback(callback, deps);
           }
@@ -1876,7 +1876,7 @@
           exports.memo = memo;
           exports.startTransition = startTransition;
           exports.unstable_act = act;
-          exports.useCallback = useCallback2;
+          exports.useCallback = useCallback;
           exports.useContext = useContext;
           exports.useDebugValue = useDebugValue;
           exports.useDeferredValue = useDeferredValue;
@@ -1887,7 +1887,7 @@
           exports.useLayoutEffect = useLayoutEffect;
           exports.useMemo = useMemo;
           exports.useReducer = useReducer;
-          exports.useRef = useRef2;
+          exports.useRef = useRef;
           exports.useState = useState2;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
@@ -2435,7 +2435,7 @@
           var HostPortal = 4;
           var HostComponent = 5;
           var HostText = 6;
-          var Fragment2 = 7;
+          var Fragment = 7;
           var Mode = 8;
           var ContextConsumer = 9;
           var ContextProvider = 10;
@@ -3591,7 +3591,7 @@
                 return "DehydratedFragment";
               case ForwardRef:
                 return getWrappedName$1(type, type.render, "ForwardRef");
-              case Fragment2:
+              case Fragment:
                 return "Fragment";
               case HostComponent:
                 return type;
@@ -11992,7 +11992,7 @@
               }
             }
             function updateFragment2(returnFiber, current2, fragment, lanes, key) {
-              if (current2 === null || current2.tag !== Fragment2) {
+              if (current2 === null || current2.tag !== Fragment) {
                 var created = createFiberFromFragment(fragment, returnFiber.mode, lanes, key);
                 created.return = returnFiber;
                 return created;
@@ -12395,7 +12395,7 @@
                 if (child.key === key) {
                   var elementType = element.type;
                   if (elementType === REACT_FRAGMENT_TYPE) {
-                    if (child.tag === Fragment2) {
+                    if (child.tag === Fragment) {
                       deleteRemainingChildren(returnFiber, child.sibling);
                       var existing = useFiber(child, element.props.children);
                       existing.return = returnFiber;
@@ -17872,7 +17872,7 @@
                 var _resolvedProps2 = workInProgress2.elementType === type ? _unresolvedProps2 : resolveDefaultProps(type, _unresolvedProps2);
                 return updateForwardRef(current2, workInProgress2, type, _resolvedProps2, renderLanes2);
               }
-              case Fragment2:
+              case Fragment:
                 return updateFragment(current2, workInProgress2, renderLanes2);
               case Mode:
                 return updateMode(current2, workInProgress2, renderLanes2);
@@ -18145,7 +18145,7 @@
               case SimpleMemoComponent:
               case FunctionComponent:
               case ForwardRef:
-              case Fragment2:
+              case Fragment:
               case Mode:
               case Profiler:
               case ContextConsumer:
@@ -22404,7 +22404,7 @@
             return fiber;
           }
           function createFiberFromFragment(elements, mode, lanes, key) {
-            var fiber = createFiber(Fragment2, elements, key, mode);
+            var fiber = createFiber(Fragment, elements, key, mode);
             fiber.lanes = lanes;
             return fiber;
           }
@@ -24458,248 +24458,119 @@
     }
   });
 
-  // webview/docPanel/index.jsx
+  // webview/connectRepo/index.jsx
   var import_react2 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
-  // webview/docPanel/DocPanel.jsx
+  // webview/connectRepo/connectRepo.jsx
   var import_react = __toESM(require_react());
   var import_jsx_runtime = __toESM(require_jsx_runtime());
   var vscode = acquireVsCodeApi();
-  var TYPE_LABEL = { source: "Source", written: "Written", ai: "AI docs", voice: "Voice" };
-  var TYPE_ICON = { source: "\u27E8\u27E9", written: "\u270E", ai: "\u2726", voice: "\u{1F399}" };
-  function DocPanel() {
-    const [meta, setMeta] = (0, import_react.useState)(null);
-    const [entries, setEntries] = (0, import_react.useState)(void 0);
-    const [error, setError] = (0, import_react.useState)(null);
-    const [activeEntryId, setActiveEntryId] = (0, import_react.useState)(null);
+  function ConnectRepo() {
+    const [status, setStatus] = (0, import_react.useState)("idle");
+    const [statusMessage, setStatusMessage] = (0, import_react.useState)("");
+    const [repoUrl, setRepoUrl] = (0, import_react.useState)("");
+    const [showUrlInput, setShowUrlInput] = (0, import_react.useState)(false);
+    const [errorDetails, setErrorDetails] = (0, import_react.useState)("");
+    const [stats, setStats] = (0, import_react.useState)(null);
     (0, import_react.useEffect)(() => {
-      function onMessage(event) {
-        const message = event.data;
-        switch (message.type) {
-          case "meta":
-            setMeta(message.payload);
-            setEntries(void 0);
-            setError(null);
+      const handleMessage = (event) => {
+        const msg = event.data;
+        if (!msg)
+          return;
+        switch (msg.command) {
+          case "initData":
+            if (msg.repoUrl) {
+              setRepoUrl(msg.repoUrl);
+            }
             break;
-          case "entries":
-            setEntries(message.payload);
-            setActiveEntryId((current) => current ?? message.payload[0]?.id ?? null);
-            break;
-          case "error":
-            setEntries(null);
-            setError(message.message);
-            break;
-          default:
+          case "setStatus":
+            setStatus(msg.status);
+            setStatusMessage(msg.message || "");
+            if (msg.error)
+              setErrorDetails(msg.error);
+            if (msg.stats)
+              setStats(msg.stats);
             break;
         }
-      }
-      window.addEventListener("message", onMessage);
-      vscode.postMessage({ type: "ready" });
-      return () => window.removeEventListener("message", onMessage);
+      };
+      window.addEventListener("message", handleMessage);
+      vscode.postMessage({ command: "ready" });
+      return () => window.removeEventListener("message", handleMessage);
     }, []);
-    if (!meta) {
-      return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { id: "app" });
-    }
-    const activeEntry = Array.isArray(entries) ? entries.find((e) => e.id === activeEntryId) : null;
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "app", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Header, { symbolName: meta.symbolName }),
-      Array.isArray(entries) && entries.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TabBar, { entries, activeEntryId, onSelect: setActiveEntryId }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "content", children: [
-        entries === void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Skeleton, {}),
-        entries === null && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ErrorState, { message: error }),
-        Array.isArray(entries) && entries.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(EmptyState, { symbolName: meta.symbolName }),
-        activeEntry && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(EntryDetail, { entry: activeEntry })
+    const handleConnect = () => {
+      setStatus("loading");
+      setStatusMessage("Scanning workspace and parsing functions\u2026");
+      setErrorDetails("");
+      vscode.postMessage({
+        command: "connectRepo",
+        repoUrl: repoUrl.trim() || void 0
+      });
+    };
+    const handleDone = () => {
+      vscode.postMessage({ command: "close" });
+    };
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "connect-wrapper", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "connect-card", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "icon-badge", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" }) }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", { className: "connect-title", children: "Connect your repo" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "connect-desc", children: "Link a GitHub repository to index every function. This only runs the first time." }),
+      status === "loading" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "status-box status-box--loading", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "spinner" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "status-message", children: statusMessage || "Indexing repository\u2026" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "status-detail", children: "Creating .funcmanager and .docmanager" })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Footer, {})
-    ] });
-  }
-  function Header({ symbolName }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { id: "header", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "symbolInfo", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { id: "symbolIcon", children: "\u0192" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { id: "symbolName", children: symbolName })
+      status === "success" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "status-box status-box--success", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "status-message", style: { color: "#3ac8ab" }, children: "\u2713 Repository connected & indexed!" }),
+        stats && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "status-detail", children: [
+          "Indexed ",
+          stats.functionsCount,
+          " functions across ",
+          stats.filesCount,
+          " files."
+        ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { id: "jumpBtn", title: "Go to definition", onClick: () => vscode.postMessage({ type: "jumpToSymbol" }), children: "\u2197" })
-    ] });
-  }
-  function TabBar({ entries, activeEntryId, onSelect }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { id: "tabs", children: entries.map((entry) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-      "button",
-      {
-        className: "tab" + (entry.id === activeEntryId ? " active" : ""),
-        title: `${TYPE_LABEL[entry.type]} \xB7 ${formatDate(entry.createdAt)} \xB7 ${entry.author}`,
-        onClick: () => onSelect(entry.id),
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "tab-icon", children: TYPE_ICON[entry.type] }),
-          " ",
-          TYPE_LABEL[entry.type]
-        ]
-      },
-      entry.id
-    )) });
-  }
-  function EntryDetail({ entry }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "entry-meta", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: entry.author }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dot", children: "\xB7" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: formatDate(entry.createdAt) })
-      ] }),
-      entry.type === "voice" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(VoiceEntry, { entry }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TextEntry, { entry })
-    ] });
-  }
-  function TextEntry({ entry }) {
-    const [isEditing, setIsEditing] = (0, import_react.useState)(false);
-    const [draft, setDraft] = (0, import_react.useState)(entry.content || "");
-    (0, import_react.useEffect)(() => {
-      setDraft(entry.content || "");
-      setIsEditing(false);
-    }, [entry.id, entry.content]);
-    function handleSave() {
-      vscode.postMessage({ type: "saveWritten", entryId: entry.id, content: draft });
-      setIsEditing(false);
-    }
-    function handleCancel() {
-      setDraft(entry.content || "");
-      setIsEditing(false);
-    }
-    if (isEditing) {
-      return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-entry", children: [
+      status === "error" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "status-box status-box--error", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "error-text", children: errorDetails || statusMessage || "Failed to index repository." }) }),
+      showUrlInput && status !== "loading" && status !== "success" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "input-group", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("label", { className: "input-label", children: "GitHub Repository URL (Optional)" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "textarea",
+          "input",
           {
-            className: "text-editor",
-            value: draft,
-            onChange: (e) => setDraft(e.target.value),
-            rows: 10,
-            autoFocus: true
+            type: "text",
+            className: "repo-input",
+            placeholder: "https://github.com/owner/repo",
+            value: repoUrl,
+            onChange: (e) => setRepoUrl(e.target.value)
           }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "editor-actions", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "ghost-btn small primary", onClick: handleSave, children: "Save" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "ghost-btn small", onClick: handleCancel, children: "Cancel" })
-        ] })
-      ] });
-    }
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-entry", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-content", children: entry.content || "(empty)" }),
-      entry.type !== "source" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "ghost-btn small", onClick: () => setIsEditing(true), children: "Edit" })
-    ] });
-  }
-  function VoiceEntry({ entry }) {
-    const audioRef = (0, import_react.useRef)(null);
-    const [audioUrl, setAudioUrl] = (0, import_react.useState)(null);
-    const [isPlaying, setIsPlaying] = (0, import_react.useState)(false);
-    const [currentTime, setCurrentTime] = (0, import_react.useState)(0);
-    const barCount = 40;
-    const bars = Array.from({ length: barCount }, (_, i) => {
-      const seed = Math.sin(i * (entry.id.charCodeAt(0) || 1)) * 1e4;
-      return 20 + Math.abs(seed % 1) * 80;
-    });
-    (0, import_react.useEffect)(() => {
-      function onMessage(event) {
-        const message = event.data;
-        if (message.type === "audioUrl" && message.entryId === entry.id) {
-          setAudioUrl(message.url);
-        }
-      }
-      window.addEventListener("message", onMessage);
-      return () => window.removeEventListener("message", onMessage);
-    }, [entry.id]);
-    (0, import_react.useEffect)(() => {
-      if (audioUrl && audioRef.current) {
-        audioRef.current.play();
-        setIsPlaying(true);
-      }
-    }, [audioUrl]);
-    const handlePlayPause = (0, import_react.useCallback)(() => {
-      if (!audioUrl) {
-        vscode.postMessage({ type: "requestAudio", entryId: entry.id });
-        return;
-      }
-      const audio = audioRef.current;
-      if (!audio)
-        return;
-      if (audio.paused) {
-        audio.play();
-        setIsPlaying(true);
-      } else {
-        audio.pause();
-        setIsPlaying(false);
-      }
-    }, [audioUrl, entry.id]);
-    const duration = audioRef.current && audioRef.current.duration || entry.durationSeconds || 0;
-    const playedCount = duration ? Math.floor(currentTime / duration * barCount) : 0;
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "voice-entry", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "waveform", children: bars.map((height, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: i < playedCount ? "played" : "", style: { height: `${height}%` } }, i)) }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "player-controls", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "play-btn", onClick: handlePlayPause, children: isPlaying ? "\u23F8" : "\u25B6" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "time", children: [
-          formatDuration(currentTime),
-          " / ",
-          formatDuration(duration)
-        ] })
+        )
       ] }),
-      entry.transcript && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "transcript", children: entry.transcript }),
-      audioUrl && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-        "audio",
+      status === "success" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn-primary", onClick: handleDone, children: "Start Exploring Code" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        "button",
         {
-          ref: audioRef,
-          src: audioUrl,
-          onTimeUpdate: (e) => setCurrentTime(e.currentTarget.currentTime),
-          onEnded: () => setIsPlaying(false)
+          className: "btn-primary",
+          onClick: handleConnect,
+          disabled: status === "loading",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" }) }),
+            status === "loading" ? "Indexing functions\u2026" : "Connect repository"
+          ]
         }
-      )
-    ] });
-  }
-  function Skeleton() {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "skeleton", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "skeleton-line short" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "skeleton-line" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "skeleton-line" })
-    ] });
-  }
-  function ErrorState({ message }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "empty-state", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Couldn't load documentation." }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "muted", children: message || "Unknown error" })
-    ] });
-  }
-  function EmptyState({ symbolName }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "empty-state", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { children: [
-        "No documentation yet for ",
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: symbolName }),
-        "."
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "muted", children: "Use the buttons below to write, generate, or record one." })
-    ] });
-  }
-  function Footer() {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("footer", { id: "footer", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "ghost-btn", onClick: () => vscode.postMessage({ type: "editWritten" }), children: "+ Written" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "ghost-btn", onClick: () => vscode.postMessage({ type: "generateWithAI" }), children: "+ AI docs" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "ghost-btn", onClick: () => vscode.postMessage({ type: "reRecordVoice" }), children: "+ Voice" })
-    ] });
-  }
-  function formatDuration(seconds) {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
-  }
-  function formatDate(iso) {
-    try {
-      return new Date(iso).toLocaleDateString(void 0, { month: "short", day: "numeric", year: "numeric" });
-    } catch {
-      return iso;
-    }
+      ),
+      status !== "loading" && status !== "success" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        "button",
+        {
+          className: "btn-toggle-input",
+          onClick: () => setShowUrlInput(!showUrlInput),
+          children: showUrlInput ? "Hide repository URL input" : "Paste custom GitHub URL"
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "connect-footer", children: "Creates .funcmanager and .docmanager in your project" })
+    ] }) });
   }
 
-  // webview/docPanel/index.jsx
+  // webview/connectRepo/index.jsx
   var import_jsx_runtime2 = __toESM(require_jsx_runtime());
   var root = (0, import_client.createRoot)(document.getElementById("root"));
-  root.render(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(DocPanel, {}));
+  root.render(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ConnectRepo, {}));
 })();
 /*! Bundled license information:
 

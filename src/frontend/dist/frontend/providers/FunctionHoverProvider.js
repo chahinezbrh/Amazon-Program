@@ -37,6 +37,7 @@ exports.FunctionHoverProvider = void 0;
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const DocPanelProvider_1 = require("./DocPanelProvider");
+const docClient_1 = require("../services/docClient");
 class FunctionHoverProvider {
     constructor(context) {
         this.context = context;
@@ -80,17 +81,27 @@ class FunctionHoverProvider {
             this.panel?.webview.postMessage({ command: 'setData', data: functionData });
         }, 200);
     }
-    // ← added — was missing entirely
     async fetchDocEntries(meta) {
-        // TEMP mock — replace with a real backend call later
-        return [
-            {
-                id: '1',
-                kind: 'written',
-                content: `Docs for ${meta.symbolName}`,
-                createdAt: new Date().toISOString(),
-            },
-        ];
+        try {
+            return await (0, docClient_1.getDocsForSymbol)(meta);
+        }
+        catch {
+            // Fallback mock if doc service is unavailable or running in standalone test
+            return [
+                {
+                    id: '1',
+                    type: 'written',
+                    content: `Docs for ${meta.symbolName}`,
+                    author: 'Unknown',
+                    createdAt: new Date().toISOString(),
+                    symbolName: meta.symbolName,
+                    filePath: meta.filePath,
+                    startLine: meta.startLine,
+                    endLine: meta.endLine,
+                    isStale: false,
+                },
+            ];
+        }
     }
     getHtml(webview) {
         const scriptPath = vscode.Uri.file(path.join(this.context.extensionPath, 'dist', 'webview', 'functionHoverPopup.js'));
