@@ -45,6 +45,10 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+      {"command": "docManager.showDocPanel", "when": "false" },
+      {"command": "docManager.playVoice", "when": "false" }
+    ],
       "editor/title": [
       {
         "command": "docManager.scanRepo",
@@ -56,9 +60,9 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "build:webview": "esbuild src/frontend/webviews/docPanel/index.jsx --bundle --outfile=out/frontend/webviews/docPanel/docPanel.js --format=iife && node -e \"require('fs').copyFileSync('src/frontend/webviews/docPanel/docPanel.css','out/frontend/webviews/docPanel/docPanel.css')\"",
+    "build:webview": "node scripts/build-webviews.js",
     "build": "npm run compile && npm run build:webview",
-    "watch:webview": "esbuild src/frontend/webviews/docPanel/index.jsx --bundle --outfile=out/frontend/webviews/docPanel/docPanel.js --format=iife --watch",
+    "watch:webview": "node scripts/build-webviews.js --watch",
     "dev": "concurrently \"npm:watch\" \"npm:watch:webview\"",
     "pretest": "npm run build",
     "test": "vscode-test"
