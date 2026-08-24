@@ -5,6 +5,7 @@ import { HoverProvider } from './frontend/providers/hoverProvider';
 import { showDocPanel } from './frontend/commands/showDocPanel';
 import { SymbolMeta } from './shared/types';
 import { scanRepo } from './frontend/commands/scanRepo';
+import { RecordPanelProvider } from './frontend/providers/recordPanelProvider';
 
 /** Must stay in sync with activationEvents in package.json. */
 const SUPPORTED_LANGUAGES = [
@@ -37,7 +38,13 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
   vscode.commands.registerCommand('docManager.scanRepo', scanRepo)
-);
+  );
+
+  context.subscriptions.push(
+  vscode.commands.registerCommand('docManager.recordDoc', (meta: SymbolMeta) =>
+    RecordPanelProvider.show(context.extensionUri, meta)
+  )
+  );
 
   // -------------------------------------------------------------------------
   // 3. Not built yet.
@@ -59,7 +66,6 @@ export function activate(context: vscode.ExtensionContext) {
     notImplemented('docManager.playVoice'),
     notImplemented('docManager.editDoc'),
     notImplemented('docManager.generateDoc'),
-    notImplemented('docManager.recordDoc')
   );
 
   // -------------------------------------------------------------------------
