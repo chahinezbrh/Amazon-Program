@@ -1,6 +1,6 @@
-import * as vscode from 'vscode';
-import WebSocket from 'ws';
-import { EventEmitter } from 'events';
+import * as vscode from 'vscode'; // if u get an error regarding this run npm install --save-dev @types/vscode --legacy-peer-deps
+import WebSocket from 'ws'; //npm install ws
+import { EventEmitter } from 'events'; //npm install events
 
 export class WebhookClientService extends EventEmitter {
   private ws: WebSocket | undefined;
