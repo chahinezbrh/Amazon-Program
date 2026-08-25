@@ -113,10 +113,7 @@ export async function getDocsForSymbol(
 
 /** Persists one doc and returns it as the panel will render it, so the caller
  *  can swap in the canonical version (real id, real timestamp) after saving. */
-export async function saveDoc(
-  repoRoot: string,
-  input: SaveDocInput
-): Promise<DocEntry> {
+export async function saveDoc(repoRoot: string, input: SaveDocInput): Promise<DocEntry> {
   const { meta, codeHash } = input;
   const functions = await readFileDocs(repoRoot, meta.filePath);
 
