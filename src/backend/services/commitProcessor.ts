@@ -1,4 +1,4 @@
-import { diffLines } from 'diff'; // npm install diff
+import { diffLines } from 'diff'; 
 import { readFunctionRecordsFile, writeFunctionRecordsFile, createFunctionRecords } from './createFunctionRecords';
 import { languageForPath } from '../db/fileWalker';
 import { parseTextForLanguage } from './parseText';
