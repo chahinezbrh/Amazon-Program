@@ -3,7 +3,14 @@ import { Octokit } from '@octokit/rest'; // npm install @octokit/rest
 export function parseOwnerRepo(repoUrl: string): { owner: string; repo: string } {
   const clean = repoUrl.replace(/\.git$/, '').replace(/\/$/, '');
   const parts = clean.split('/');
-  return { owner: parts[parts.length - 2], repo: parts[parts.length - 1] };
+  const owner = parts[parts.length - 2];
+  const repo = parts[parts.length - 1];
+
+  if (!owner || !repo) {
+    throw new Error(`Invalid repository URL: "${repoUrl}"`);
+  }
+
+  return { owner, repo };
 }
 
 export async function fetchFileAtRef(
