@@ -1,29 +1,31 @@
 import * as vscode from 'vscode';
-import { FunctionHoverProvider } from './providers/FunctionHoverProvider';
+import { HoverProvider } from './providers/hoverProvider';
 import { DocPanelProvider } from './providers/DocPanelProvider';
 import { SideBarProvider } from './providers/sideBarProvider';
 import { SymbolMeta, DocEntry } from '../shared/types';
 import { PlayMemoryProvider } from './providers/playMemoryProvider';
 import { ModificationNotifProvider } from './providers/modificationNotifProvider';
 import { ConnectRepoProvider } from './providers/connectRepoProvider';
+import { RecordPanelProvider } from './providers/recordPanelProvider';
 
 export function activate(context: vscode.ExtensionContext) {
-  const hoverProvider = new FunctionHoverProvider(context);
+  const hoverProvider = new HoverProvider(context);
 
-  // Check if workspace functions are indexed on first run; prompt if not
+  // Register hover provider for all files
+  const hoverRegistration = vscode.languages.registerHoverProvider(
+    { scheme: 'file' },
+    hoverProvider
+  );
+
   ConnectRepoProvider.checkAndPrompt(context);
 
   const connectRepoCommand = vscode.commands.registerCommand(
     'yourExtension.connectRepo',
     () => {
       ConnectRepoProvider.show(context);
-
     }
   );
 
-  // ── Test command — same as connectRepoCommand for now, kept
-  // separate so it can diverge later (e.g. mock data) without
-  // touching the "real" entry point.
   const testConnectRepoCommand = vscode.commands.registerCommand(
     'yourExtension.testConnectRepo',
     () => {
@@ -31,9 +33,35 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const showFunctionPopupCommand = vscode.commands.registerCommand(
+    'yourExtension.showFunctionPopup',
+    (meta: SymbolMeta) => {
+      hoverProvider.showForFunction(
+        meta.symbolName,
+        meta.filePath,
+        meta.startLine,
+        meta.endLine
+      );
+    }
+  );
+
   const testPopupCommand = vscode.commands.registerCommand('yourExtension.testPopup', () => {
     hoverProvider.showForFunction('authenticateUser', 'src/auth/middleware.js');
   });
+
+  const showDocPanelCommand = vscode.commands.registerCommand(
+    'docManager.showDocPanel',
+    (meta: SymbolMeta) => {
+      DocPanelProvider.show(context.extensionUri, meta);
+    }
+  );
+
+  const openFullDocsCommand = vscode.commands.registerCommand(
+    'docManager.openFullDocs',
+    (meta: SymbolMeta) => {
+      DocPanelProvider.show(context.extensionUri, meta);
+    }
+  );
 
   const testDocPanelCommand = vscode.commands.registerCommand('yourExtension.testDocPanel', () => {
     const mockMeta: SymbolMeta = {
@@ -57,7 +85,7 @@ export function activate(context: vscode.ExtensionContext) {
           filePath: mockMeta.filePath,
           startLine: mockMeta.startLine,
           endLine: mockMeta.endLine,
-          isStale: false
+          isStale: false,
         },
         {
           id: '2',
@@ -69,7 +97,7 @@ export function activate(context: vscode.ExtensionContext) {
           filePath: mockMeta.filePath,
           startLine: mockMeta.startLine,
           endLine: mockMeta.endLine,
-          isStale: false
+          isStale: false,
         },
         {
           id: '3',
@@ -81,13 +109,77 @@ export function activate(context: vscode.ExtensionContext) {
           filePath: mockMeta.filePath,
           startLine: mockMeta.startLine,
           endLine: mockMeta.endLine,
-          isStale: false
+          isStale: false,
         },
       ];
 
       DocPanelProvider.currentPanel?.updateEntries(mockEntries);
     }, 500);
   });
+
+  const recordDocCommand = vscode.commands.registerCommand(
+    'yourExtension.recordDoc',
+    (meta: SymbolMeta) => {
+      RecordPanelProvider.show(context.extensionUri, meta);
+    }
+  );
+
+  const docManagerRecordDocCommand = vscode.commands.registerCommand(
+    'docManager.recordDoc',
+    (meta: SymbolMeta) => {
+      RecordPanelProvider.show(context.extensionUri, meta);
+    }
+  );
+
+  const docManagerAddMemoryCommand = vscode.commands.registerCommand(
+    'docManager.addMemory',
+    (meta: SymbolMeta) => {
+      RecordPanelProvider.show(context.extensionUri, meta);
+    }
+  );
+
+  const docManagerAiDocsCommand = vscode.commands.registerCommand(
+    'docManager.aiDocs',
+    (meta: SymbolMeta) => {
+      vscode.window.showInformationMessage(
+        `AI Documentation requested for ${meta?.symbolName || 'symbol'}.`
+      );
+    }
+  );
+
+  const docManagerWriteDocsCommand = vscode.commands.registerCommand(
+    'docManager.writeDocs',
+    (meta: SymbolMeta) => {
+      if (meta) {
+        DocPanelProvider.show(context.extensionUri, meta);
+      }
+    }
+  );
+
+  const docManagerPlayVoiceCommand = vscode.commands.registerCommand(
+    'docManager.playVoice',
+    (meta: SymbolMeta) => {
+      PlayMemoryProvider.show(context.extensionUri, {
+        functionName: meta?.symbolName || 'Function',
+        filePath: meta?.filePath || '',
+        durationSec: 47,
+        transcript: 'Voice documentation recording.',
+      });
+    }
+  );
+
+  const testRecordDocCommand = vscode.commands.registerCommand(
+    'yourExtension.testRecordDoc',
+    () => {
+      const mockMeta: SymbolMeta = {
+        symbolName: 'authenticateUser',
+        filePath: 'src/auth/middleware.js',
+        startLine: 10,
+        endLine: 25,
+      };
+      RecordPanelProvider.show(context.extensionUri, mockMeta);
+    }
+  );
 
   const sideBarProvider = new SideBarProvider(context.extensionUri);
   const sideBarView = vscode.window.registerWebviewViewProvider(
@@ -108,7 +200,6 @@ export function activate(context: vscode.ExtensionContext) {
     });
   });
 
-  // ── Notification Center Commands & View ─────────────────
   const showNotifCenterCommand = vscode.commands.registerCommand(
     'yourExtension.showNotificationCenter',
     (filter?: string) => {
@@ -123,99 +214,27 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  const notificationsWebviewProvider: vscode.WebviewViewProvider = {
-    resolveWebviewView(webviewView) {
-      webviewView.webview.options = {
-        enableScripts: true,
-      };
-      webviewView.webview.html = `<!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              padding: 20px 16px;
-              color: #c8cdd0;
-              background-color: #1e2122;
-              display: flex;
-              flex-direction: column;
-              gap: 12px;
-              user-select: none;
-            }
-            .header {
-              font-size: 11px;
-              font-weight: 700;
-              letter-spacing: 1px;
-              color: #7a8490;
-              text-transform: uppercase;
-            }
-            .desc {
-              font-size: 12px;
-              color: #9ca3af;
-              line-height: 1.4;
-            }
-            .open-btn {
-              background-color: #2a2f31;
-              color: #f0f3f6;
-              border: 1.5px solid rgba(58, 200, 171, 0.4);
-              padding: 9px 14px;
-              border-radius: 999px;
-              cursor: pointer;
-              font-size: 12px;
-              font-weight: 600;
-              transition: all 0.15s ease;
-              text-align: center;
-              margin-top: 4px;
-            }
-            .open-btn:hover {
-              background-color: rgba(58, 200, 171, 0.12);
-              border-color: #3ac8ab;
-              color: #3ac8ab;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">Notification Center</div>
-          <div class="desc">Review code modifications affecting recorded memories.</div>
-          <button class="open-btn" onclick="openCenter()">
-            Open Notification Center
-          </button>
-          <script>
-            const vscode = acquireVsCodeApi();
-            function openCenter() {
-              vscode.postMessage({ command: 'open' });
-            }
-            document.body.addEventListener('click', () => {
-              vscode.postMessage({ command: 'open' });
-            }, { once: true });
-          </script>
-        </body>
-      </html>`;
-
-      webviewView.webview.onDidReceiveMessage((msg) => {
-        if (msg.command === 'open') {
-          ModificationNotifProvider.show(context.extensionUri, 'modifications');
-        }
-      });
-    },
-  };
-
-  const notificationsView = vscode.window.registerWebviewViewProvider(
-    'amazonProgram.notificationsView',
-    notificationsWebviewProvider
-  );
-
   context.subscriptions.push(
+    hoverRegistration,
     connectRepoCommand,
     testConnectRepoCommand,
+    showFunctionPopupCommand,
     testPopupCommand,
+    showDocPanelCommand,
+    openFullDocsCommand,
     testDocPanelCommand,
+    recordDocCommand,
+    docManagerRecordDocCommand,
+    docManagerAddMemoryCommand,
+    docManagerAiDocsCommand,
+    docManagerWriteDocsCommand,
+    docManagerPlayVoiceCommand,
+    testRecordDocCommand,
     sideBarView,
     testSideBarCommand,
     testPlayMemoryCommand,
     showNotifCenterCommand,
-    testModificationNotifCommand,
-    notificationsView
+    testModificationNotifCommand
   );
 
   setTimeout(() => {

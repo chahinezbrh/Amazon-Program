@@ -28,6 +28,10 @@
         "title": "Test: Show Function Popup"
       },
       {
+        "command": "yourExtension.showFunctionPopup",
+        "title": "CMS Memory: Show Function Popup"
+      },
+      {
         "command": "yourExtension.testDocPanel",
         "title": "Test: Show Doc Panel"
       },
@@ -47,6 +51,15 @@
         "command": "yourExtension.testModificationNotif",
         "title": "Test: Show Notification Center"
       }
+      ,{
+      "command": "docManager.recordDoc",
+      "title": "Record Documentation"
+     },
+     {
+      "command": "yourExtension.testRecordDoc",
+      "title": "Test: Show Record Panel"
+     }
+     
     ],
     "viewsContainers": {
       "activitybar": [

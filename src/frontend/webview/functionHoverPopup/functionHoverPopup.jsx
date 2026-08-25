@@ -1,36 +1,30 @@
 import { useState, useEffect } from 'react';
-import './functionHoverPopup.css';
 
 const vscode = acquireVsCodeApi();
 
 export default function FunctionHoverPopup() {
-  // TEMP: hardcoded static data, bypassing postMessage entirely, just to check styling
-  const [functionData, setFunctionData] = useState({
-    id: '1',
-    name: 'authenticateUser',
-    durationSec: 47,
-  });
-
+  const [functionData, setFunctionData] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  /* TEMP: disabled while testing static rendering
   useEffect(() => {
     const listener = (event) => {
       if (event.data.command === 'setData') {
         setFunctionData(event.data.data);
+        setIsPlaying(false);
+        setProgress(0);
       }
     };
     window.addEventListener('message', listener);
+    vscode.postMessage({ command: 'ready' });
     return () => window.removeEventListener('message', listener);
   }, []);
-  */
 
-  const durationSec = functionData?.durationSec ?? 47;
+  const hasMemory = Boolean(functionData?.hasMemory);
+  const durationSec = functionData?.durationSec ?? 0;
 
   useEffect(() => {
     if (!isPlaying) return;
-
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= durationSec) {
@@ -40,7 +34,6 @@ export default function FunctionHoverPopup() {
         return prev + 1;
       });
     }, 1000);
-
     return () => clearInterval(interval);
   }, [isPlaying, durationSec]);
 
@@ -69,13 +62,9 @@ export default function FunctionHoverPopup() {
   };
 
   const formatTime = () => {
-    if (!isPlaying && progress === 0) {
-      const mins = Math.floor(durationSec / 60);
-      const secs = durationSec % 60;
-      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-    }
-    const mins = Math.floor(progress / 60);
-    const secs = progress % 60;
+    const t = isPlaying || progress > 0 ? progress : durationSec;
+    const mins = Math.floor(t / 60);
+    const secs = t % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
@@ -87,7 +76,7 @@ export default function FunctionHoverPopup() {
         <header className="card-header">
           <button className="header-btn btn-add" onClick={handleAddMemory}>
             <span className="plus-icon">+</span>
-            Add memory
+            <span>Add memory</span>
           </button>
 
           <button className="header-btn btn-ai" onClick={handleAiDocs}>
@@ -95,45 +84,55 @@ export default function FunctionHoverPopup() {
               <path d="M9 4L11.5 9.5L17 12L11.5 14.5L9 20L6.5 14.5L1 12L6.5 9.5L9 4Z" />
               <path d="M19 2L20.25 4.75L23 6L20.25 7.25L19 10L17.75 7.25L15 6L17.75 4.75L19 2Z" />
             </svg>
-            AI docs
+            <span>AI docs</span>
           </button>
 
           <button className="header-btn btn-write" onClick={handleWriteDocs}>
-            Write docs
+            <span>Write docs</span>
           </button>
         </header>
 
         <main className="card-content">
-          <div className="content-label">Voice memory</div>
+          {hasMemory ? (
+            <>
+              <div className="content-label">Voice memory</div>
+              <div className="player-row">
+                <button
+                  className={`play-pill ${isPlaying ? 'playing' : ''}`}
+                  onClick={handlePlayToggle}
+                  title={isPlaying ? 'Pause voice memory' : 'Play voice memory'}
+                >
+                  {isPlaying ? (
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="play-icon">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="play-icon">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
+                  <span>{formatTime()}</span>
+                </button>
 
-          <div className="player-row">
-            <button
-              className={`play-pill ${isPlaying ? 'playing' : ''}`}
-              onClick={handlePlayToggle}
-              title={isPlaying ? 'Pause voice memory' : 'Play voice memory'}
-            >
-              {isPlaying ? (
-                <svg viewBox="0 0 24 24" fill="currentColor" className="play-icon">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="currentColor" className="play-icon">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-              <span>{formatTime()}</span>
-            </button>
-
-            <div className={`waveform ${isPlaying ? 'playing' : ''}`}>
-              {barHeights.map((height, index) => (
-                <div key={index} className="wave-bar" style={{ height: `${height}px` }} />
-              ))}
-            </div>
-          </div>
+                <div className={`waveform ${isPlaying ? 'playing' : ''}`}>
+                  {barHeights.map((height, index) => (
+                    <div key={index} className="wave-bar" style={{ height: `${height}px` }} />
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="no-memory">There is no voice memory !</div>
+          )}
         </main>
 
         <footer className="card-footer">
-          <button className="footer-btn" onClick={handlePlayToggle}>
+          <button
+            className="footer-btn"
+            onClick={handlePlayToggle}
+            disabled={!hasMemory}
+            title={hasMemory ? 'Play voice memory' : 'No voice memory recorded'}
+          >
             {isPlaying ? 'Pause memory' : 'Play memory'}
           </button>
           <div className="footer-divider" />

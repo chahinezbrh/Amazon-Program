@@ -4,8 +4,15 @@ esbuild.buildSync({
   entryPoints: ['webview/functionHoverPopup/index.jsx'],
   bundle: true,
   outfile: 'dist/webview/functionHoverPopup.js',
-  loader: { '.jsx': 'jsx', '.css': 'css' },
+  loader: { '.jsx': 'jsx' },
   jsx: 'automatic',
+});
+
+// Explicit CSS bundle so the <link> tag in getHtml() gets the full stylesheet,
+// independent of esbuild's implicit companion-CSS extraction from the JSX bundle.
+esbuild.buildSync({
+  entryPoints: ['webview/functionHoverPopup/functionHoverPopup.css'],
+  outfile: 'dist/webview/functionHoverPopup.css',
 });
 
 esbuild.buildSync({
@@ -60,6 +67,20 @@ esbuild.buildSync({
 esbuild.buildSync({
   entryPoints: ['webview/modificationNotif/modificationNotif.css'],
   outfile: 'dist/webview/modificationNotif/modificationNotif.css',
+});
+
+// ── Record Panel ─────────────────────────────────────────
+esbuild.buildSync({
+  entryPoints: ['webview/recordPanel/index.jsx'],
+  bundle: true,
+  outfile: 'dist/webview/recordPanel/recordPanel.js',
+  loader: { '.jsx': 'jsx', '.css': 'css' },
+  jsx: 'automatic',
+});
+
+esbuild.buildSync({
+  entryPoints: ['webview/recordPanel/RecordPanel.css'],
+  outfile: 'dist/webview/recordPanel/recordPanel.css',
 });
 
 // ── Connect Repo ──────────────────────────────────────────

@@ -21,7 +21,7 @@ function initLanguageMap() {
         }
     }
     catch {
-        // Fallback for common languages if language-map is not yet installed in frontend
+        //cuz language map is not installed
         const fallback = {
             '.js': 'JavaScript',
             '.jsx': 'JavaScript',

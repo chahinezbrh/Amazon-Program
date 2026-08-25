@@ -38,15 +38,15 @@ const vscode = __importStar(require("vscode"));
 const docClient_1 = require("../services/docClient");
 /**
  * Manages the "Show Doc" side panel: a single reusable webview that
- * displays every documentation entry (written, AI-generated, voice)
+ * displays every documentation entry (source, written, AI-generated, voice)
  * attached to whichever symbol the user hovered on.
  *
  * The panel opens INSTANTLY with just the symbol's name/location (known
  * synchronously from the hover), then shows a loading state in its content
  * area until the caller pushes the actual entries in via `updateEntries()`.
- * This matters when entries come from a slow lookup (HTTP call to the
- * backend, disk scan, etc.) — the user gets visual feedback right away
- * instead of a dead click while `getDocsForSymbol()` resolves.
+ * This matters when entries come from a slow lookup — the user gets visual
+ * feedback right away instead of a dead click while `getDocsForSymbol()`
+ * resolves.
  *
  * There is only ever one panel open at a time — calling `show()` again
  * just reveals it and swaps its content, the same way VS Code's own
@@ -65,11 +65,12 @@ class DocPanelProvider {
             enableScripts: true,
             retainContextWhenHidden: true,
             localResourceRoots: [
-                // NOTE: assumes your build (esbuild/webpack) emits the bundled
-                // docPanel.js + docPanel.css into out/frontend/webviews/docPanel.
-                // Adjust if your build outputs elsewhere.
+                // The bundled webview, emitted by build:webview.
                 vscode.Uri.joinPath(extensionUri, 'out', 'frontend', 'webviews', 'docPanel'),
-                vscode.Uri.joinPath(extensionUri, 'assets'), // folder where recorded audio lives
+                // Voice recordings live in the USER'S repo (.docmanager/audio), not
+                // in the extension folder. A webview refuses to load any file outside
+                // these roots, so without this the audio silently never plays.
+                ...(vscode.workspace.workspaceFolders?.map((folder) => folder.uri) ?? []),
             ],
         });
         DocPanelProvider.currentPanel = new DocPanelProvider(panel, extensionUri, meta);
@@ -123,14 +124,20 @@ class DocPanelProvider {
                 break;
             case 'requestAudio': {
                 const entry = this.currentEntries?.find((e) => e.id === message.entryId);
-                if (entry?.audioPath) {
-                    const audioUri = this.panel.webview.asWebviewUri(vscode.Uri.file(entry.audioPath));
-                    this.panel.webview.postMessage({
-                        type: 'audioUrl',
-                        entryId: entry.id,
-                        url: audioUri.toString(),
-                    });
-                }
+                if (!entry?.audioPath)
+                    break;
+                // audioPath is stored RELATIVE to the repo root (".docmanager/audio/x.webm")
+                // so a recording made here still resolves after a teammate clones to a
+                // different path. Resolve it against the workspace only at playback time.
+                const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(this.currentMeta.filePath));
+                if (!folder)
+                    break;
+                const audioUri = vscode.Uri.joinPath(folder.uri, ...entry.audioPath.split('/'));
+                this.panel.webview.postMessage({
+                    type: 'audioUrl',
+                    entryId: entry.id,
+                    url: this.panel.webview.asWebviewUri(audioUri).toString(),
+                });
                 break;
             }
             case 'editWritten': {
@@ -155,16 +162,15 @@ class DocPanelProvider {
             case 'saveWritten': {
                 if (!this.currentMeta)
                     break;
-                // 1. write to disk
                 await (0, docClient_1.saveDoc)({
                     type: 'written',
                     meta: this.currentMeta,
                     content: message.content,
                     author: (0, docClient_1.currentAuthor)(),
                 });
-                // 2. read back what's now on disk — this line creates `fresh`
+                // Read back what is now on disk rather than reusing the cached array:
+                // the saved entry gets its real timestamp and isStale from the service.
                 const fresh = await (0, docClient_1.getDocsForSymbol)(this.currentMeta);
-                // 3. update the cache and tell the webview to re-render
                 this.currentEntries = fresh;
                 this.panel.webview.postMessage({ type: 'entries', payload: fresh });
                 break;
@@ -175,6 +181,8 @@ class DocPanelProvider {
         const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'out', 'frontend', 'webviews', 'docPanel', 'docPanel.css'));
         const jsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'out', 'frontend', 'webviews', 'docPanel', 'docPanel.js'));
         const nonce = getNonce();
+        // media-src needs blob: as well as cspSource — without it the CSP blocks
+        // playback and the audio element fails with no visible error.
         return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -182,7 +190,7 @@ class DocPanelProvider {
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'none';
              img-src ${webview.cspSource} data:;
-             media-src ${webview.cspSource};
+             media-src ${webview.cspSource} blob:;
              style-src ${webview.cspSource} 'unsafe-inline';
              script-src 'nonce-${nonce}';" />
   <link href="${cssUri}" rel="stylesheet" />
