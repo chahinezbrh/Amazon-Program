@@ -1,0 +1,25 @@
+#Dependencies 
+node_modules/
+
+#environement variables 
+.env
+.env.*
+
+#logs 
+npm-debug.log*
+yarn-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+/generated/prisma
+
+# SQLite database files (your actual data — shouldn't be in git)
+*.db
+*.db-journal
+prisma/dev.db
+prisma/*.db
