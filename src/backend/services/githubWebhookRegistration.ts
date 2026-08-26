@@ -8,7 +8,14 @@
 function parseOwnerRepo(repoUrl: string): { owner: string; repo: string } {
   const clean = repoUrl.trim().replace(/\.git$/, '').replace(/\/$/, '');
   const parts = clean.split('/');
-  return { owner: parts[parts.length - 2], repo: parts[parts.length - 1] };
+  const owner = parts[parts.length - 2];
+  const repo = parts[parts.length - 1];
+
+  if (!owner || !repo) {
+    throw new Error(`Invalid GitHub repository URL: "${repoUrl}"`);
+  }
+
+  return { owner, repo };
 }
 
 export interface RegisterWebhookOptions {

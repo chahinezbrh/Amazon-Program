@@ -1,0 +1,18 @@
+{
+    //this file is read by vs code to know how to debug when pressing f5
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Extension",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/src/frontend"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/src/frontend/dist/frontend/**/*.js",
+                "${workspaceFolder}/src/frontend/dist/shared/**/*.js"
+            ]
+        }
+    ]
+}

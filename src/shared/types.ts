@@ -9,33 +9,41 @@
 // ---------------------------------------------------------------------------
 
 export interface SymbolMeta {
-  /** The bare name of the symbol (e.g. "MyClass", "fetchUser"). */
+
   symbolName: string;
-  /** Absolute path of the file that contains the symbol. */
   filePath: string;
-  /** 0-based line number where the symbol starts. */
   startLine: number;
-  /** 0-based line number where the symbol ends. */
   endLine: number;
 }
 
+
+
+/** Everything the panel needs to render docs for one hovered symbol, once loaded. */
+export interface SymbolDocsPayload extends SymbolMeta {
+
+  entries: DocEntry[];
+}
 // ---------------------------------------------------------------------------
 // Documentation entry — one piece of documentation attached to a symbol.
 // ---------------------------------------------------------------------------
 
-export type DocKind = 'written' | 'ai' | 'voice';
+export type DocType = 'source' | 'written' | 'ai' | 'voice';
 
 export interface DocEntry {
-  /** Unique identifier for this entry (e.g. a UUID or hash). */
+
   id: string;
-  /** The kind of documentation. */
-  kind: DocKind;
-  /** Markdown or plain-text content (written / AI entries). */
+  type: DocType;
   content?: string;
-  /** Absolute path to the recorded audio file (voice entries). */
   audioPath?: string;
-  /** ISO-8601 timestamp of when the entry was created. */
-  createdAt: string;
+  durationSeconds?: number;
+  author: string;
+  createdAt: string; // ISO-8601 date string
+  symbolName: string;
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  isStale: boolean;
+
 }
 
 // ---------------------------------------------------------------------------
@@ -56,7 +64,7 @@ export interface CodeNotification {
   affectedAuthor: string;
   status: 'critical' | 'reviewed' | 'resolved';
   changeType?: string;
-  diffLines?: Array<{ type: 'del' | 'add' | 'normal'; text: string }>;
+  diffLines?: DiffLine[]; // was: Array<{ type: 'del' | 'add' | 'normal'; text: string }>
   originalMemory?: {
     quote: string;
     duration: string;
@@ -75,8 +83,26 @@ export interface CodeNotification {
 export type WebviewToExtensionMessage =
   | { type: 'ready' }
   | { type: 'requestAudio'; entryId: string }
-  | { type: 'editWritten'; entryId: string }
+  | { type: 'editWritten'; entryId?: string }
   | { type: 'reRecordVoice' }
   | { type: 'generateWithAI' }
-  | { type: 'jumpToSymbol' };
+  | { type: 'jumpToSymbol' }
+  | { type: 'saveWritten'; entryId?: string; content: string };
 
+
+/** Messages sent from the extension host down to the webview. */
+export type ExtensionToWebviewMessage =
+  | { type: 'meta'; payload: SymbolMeta }
+  | { type: 'entries'; payload: DocEntry[] }
+  | { type: 'error'; message: string }
+  | { type: 'audioUrl'; entryId: string; url: string };
+
+// shared/types.ts — add this near CodeNotification, nothing else touched
+export interface DiffLine {
+  type: 'del' | 'add' | 'normal';
+  text: string;
+}// shared/types.ts — add this near CodeNotification, nothing else touched
+export interface DiffLine {
+  type: 'del' | 'add' | 'normal';
+  text: string;
+}
