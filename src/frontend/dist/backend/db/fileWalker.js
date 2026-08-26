@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.walk = walk;
+exports.languageForPath = languageForPath;
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 //sourced from GitHub's own language-detection tool
@@ -69,4 +70,8 @@ function walk(dir, files = []) {
         }
     }
     return files;
+}
+// fileWalker.ts — add this export (uses the map that's already built internally)
+function languageForPath(filePath) {
+    return EXTENSION_TO_LANGUAGE.get(path_1.default.extname(filePath).toLowerCase());
 }

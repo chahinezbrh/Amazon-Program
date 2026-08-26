@@ -8,6 +8,7 @@ import { ModificationNotifProvider } from './providers/modificationNotifProvider
 import { ConnectRepoProvider } from './providers/connectRepoProvider';
 import { RecordPanelProvider } from './providers/recordPanelProvider';
 
+
 export function activate(context: vscode.ExtensionContext) {
   const hoverProvider = new HoverProvider(context);
 

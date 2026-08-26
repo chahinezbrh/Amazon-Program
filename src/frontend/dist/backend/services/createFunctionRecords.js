@@ -47,6 +47,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.functionRecordsPathFor = functionRecordsPathFor;
 exports.readFunctionRecordsFile = readFunctionRecordsFile;
+exports.writeFunctionRecordsFile = writeFunctionRecordsFile;
 exports.createFunctionRecords = createFunctionRecords;
 const fs_1 = require("fs");
 const path = __importStar(require("path"));

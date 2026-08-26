@@ -4,7 +4,9 @@ import { createFunctionRecords, functionRecordsPathFor } from '../../backend/ser
 import { SideBarProvider } from './sideBarProvider';
 import { cloneOrUpdateRepo, getRemoteUrl } from '../services/cloneRepo';
 import { writeRepoConfig } from '../services/repoConfig';
-
+import { getOrPromptGithubToken } from '../../backend/services/githubAuth';
+import { registerGithubWebhook } from '../../backend/services/githubWebhookRegistration';
+import { RELAY_WEBHOOK_URL, RELAY_WEBHOOK_SECRET } from '../../backend/config';
 /**
  * ConnectRepoProvider — Manages the "Connect your repo" first-time onboarding webview.
  *
@@ -194,7 +196,36 @@ export class ConnectRepoProvider {
                 repoUrl: resolvedRepoUrl,
                 connectedAt: new Date().toISOString(),
             });
+               // Only register a live webhook when this connection came from a pasted
+            // GitHub URL — the "open existing workspace" path may not even be a
+            // GitHub repo, and if it is, connecting a webhook silently on an
+            // already-open folder would be surprising.
+            if (repoUrl && repoUrl.trim().length > 0 && resolvedRepoUrl) {
+                this.panel.webview.postMessage({
+                    command: 'setStatus',
+                    status: 'loading',
+                    message: 'Setting up live commit notifications…',
+                });
 
+                const githubToken = await getOrPromptGithubToken(this.context);
+                if (!githubToken) {
+                    vscode.window.showWarningMessage(
+                        'No GitHub token provided — live commit notifications will not work until one is added.'
+                    );
+                } else {
+                    try {
+                        await registerGithubWebhook({
+                            repoUrl: resolvedRepoUrl,
+                            githubToken,
+                            relayWebhookUrl: RELAY_WEBHOOK_URL,
+                            webhookSecret: RELAY_WEBHOOK_SECRET,
+                        });
+                    } catch (err: any) {
+                        vscode.window.showErrorMessage(`Failed to register GitHub webhook: ${err.message}`);
+                        // non-fatal — indexing already succeeded, so we don't return here
+                    }
+                }
+            }
             this.panel.webview.postMessage({
                 command: 'setStatus',
                 status: 'success',
