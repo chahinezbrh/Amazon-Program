@@ -7,6 +7,12 @@ import { PlayMemoryProvider } from './providers/playMemoryProvider';
 import { ModificationNotifProvider } from './providers/modificationNotifProvider';
 import { ConnectRepoProvider } from './providers/connectRepoProvider';
 import { RecordPanelProvider } from './providers/recordPanelProvider';
+import * as fs from 'fs';
+import * as path from 'path';
+import { RELAY_WS_URL } from '../backend/config';
+import { WebhookClientService } from '../backend/services/webhookClient';
+import { handlePushWebhook } from '../backend/services/commitProcessor';
+import { FuncManagerStore } from '../backend/services/funcManagerStore';
 
 
 export function activate(context: vscode.ExtensionContext) {
@@ -214,6 +220,42 @@ export function activate(context: vscode.ExtensionContext) {
       ModificationNotifProvider.show(context.extensionUri, 'all');
     }
   );
+
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (workspaceFolders && workspaceFolders.length > 0) {
+    const repoRoot = workspaceFolders[0].uri.fsPath;
+    const configPath = path.join(repoRoot, '.funcmanager', 'config.json');
+
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+
+      if (config.repoUrl) {
+        const store = new FuncManagerStore(repoRoot);
+        const webhookClient = new WebhookClientService(config.repoUrl, RELAY_WS_URL);
+
+        webhookClient.on('push', async (payload) => {
+          try {
+            const notifications = await handlePushWebhook(
+              repoRoot,
+              payload.head_commit?.author?.name ?? 'Unknown',
+              payload.head_commit?.message ?? ''
+            );
+            if (notifications.length > 0) {
+              store.appendNotifications(notifications);
+              if (ModificationNotifProvider.currentPanel) {
+                ModificationNotifProvider.currentPanel.updateNotifications(store.getNotifications());
+              }
+            }
+          } catch (err: any) {
+            vscode.window.showErrorMessage(`Failed to process incoming commit: ${err.message}`);
+          }
+        });
+
+        webhookClient.connect();
+        context.subscriptions.push({ dispose: () => webhookClient.dispose() });
+      }
+    }
+  }
 
   context.subscriptions.push(
     hoverRegistration,

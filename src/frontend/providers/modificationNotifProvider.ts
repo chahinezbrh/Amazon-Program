@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CodeNotification } from '../../shared/types';
+import { FuncManagerStore } from '../../backend/services/funcManagerStore';
 
 /**
  * ModificationNotifProvider — Manages the Notification Center webview panel.
@@ -14,7 +15,7 @@ export class ModificationNotifProvider {
   private readonly extensionUri: vscode.Uri;
   private disposables: vscode.Disposable[] = [];
 
-  private notifications: CodeNotification[] = [];
+  private notifications: CodeNotification[];
 
   /** Opens (or reveals) the Notification Center panel. */
   public static show(extensionUri: vscode.Uri, initialFilter: string = 'all') {
@@ -39,20 +40,28 @@ export class ModificationNotifProvider {
       }
     );
 
+    // Load whatever's already been persisted for this repo (from past webhook
+    // pushes) so reopening the panel doesn't start empty every time.
+    const repoRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const initialNotifications = repoRoot ? new FuncManagerStore(repoRoot).getNotifications() : [];
+
     ModificationNotifProvider.currentPanel = new ModificationNotifProvider(
       panel,
       extensionUri,
-      initialFilter
+      initialFilter,
+      initialNotifications
     );
   }
 
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
-    private initialFilter: string
+    private initialFilter: string,
+    initialNotifications: CodeNotification[] = []
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
+    this.notifications = initialNotifications;
 
     this.panel.webview.html = this.getHtml(this.panel.webview);
 
@@ -130,6 +139,7 @@ export class ModificationNotifProvider {
         this.notifications = this.notifications.map((n) =>
           n.id === id ? { ...n, status: 'resolved' } : n
         );
+        this.persistStatus(id, 'resolved');
         this.sendData();
         break;
       }
@@ -139,10 +149,19 @@ export class ModificationNotifProvider {
         this.notifications = this.notifications.map((n) =>
           n.id === id ? { ...n, status: 'reviewed' } : n
         );
+        this.persistStatus(id, 'reviewed');
         this.sendData();
         break;
       }
     }
+  }
+
+  /** Writes the status change back to notifications.json so it survives the
+   *  panel being closed/reopened, not just the in-memory `this.notifications`. */
+  private persistStatus(id: string, status: string) {
+    const repoRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!repoRoot) return;
+    new FuncManagerStore(repoRoot).updateNotificationStatus(id, status);
   }
 
   private getHtml(webview: vscode.Webview): string {
