@@ -4,14 +4,11 @@ import { CodeNotification } from '../../shared/types';
 
 export class FuncManagerStore {
   private funcmanagerDir: string;
-  private functionsPath: string;
   private notificationsPath: string;
 
-  constructor(workspaceRoot: string) {
-    this.funcmanagerDir = path.join(workspaceRoot, '.funcmanager');
-    this.functionsPath = path.join(this.funcmanagerDir, 'functions.json');
+  constructor(repoRoot: string) {
+    this.funcmanagerDir = path.join(repoRoot, '.funcmanager');
     this.notificationsPath = path.join(this.funcmanagerDir, 'notifications.json');
-    if (!fs.existsSync(this.functionsPath)) this.writeJson(this.functionsPath, {});
     if (!fs.existsSync(this.notificationsPath)) this.writeJson(this.notificationsPath, []);
   }
 
@@ -20,17 +17,6 @@ export class FuncManagerStore {
   }
   private writeJson(p: string, data: any) {
     fs.writeFileSync(p, JSON.stringify(data, null, 2));
-  }
-
-  getFunctionHashes(filePath: string): Record<string, string> {
-    const all = this.readJson(this.functionsPath);
-    return all[filePath] ?? {};
-  }
-
-  setFunctionHashes(filePath: string, hashes: Record<string, string>) {
-    const all = this.readJson(this.functionsPath);
-    all[filePath] = hashes;
-    this.writeJson(this.functionsPath, all);
   }
 
   getNotifications(): CodeNotification[] {

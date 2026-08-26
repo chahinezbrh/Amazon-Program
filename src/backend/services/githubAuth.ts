@@ -16,7 +16,7 @@ export async function getOrPromptGithubToken(
   const token = await vscode.window.showInputBox({
     title: 'GitHub Personal Access Token',
     prompt:
-      'FuncManager needs a token with the "admin:repo_hook" scope to register a push webhook on this repo. ' +
+      'docManager needs a token with the "admin:repo_hook" scope to register a push webhook on this repo. ' +
       'Generate one at https://github.com/settings/tokens and paste it here.',
     password: true, // masks input in the UI
     ignoreFocusOut: true,
