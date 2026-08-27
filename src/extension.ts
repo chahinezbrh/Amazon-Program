@@ -5,7 +5,9 @@ import { HoverProvider } from './frontend/providers/hoverProvider';
 import { showDocPanel } from './frontend/commands/showDocPanel';
 import { SymbolMeta } from './shared/types';
 import { scanRepo } from './frontend/commands/scanRepo';
-import { RecordPanelProvider } from './frontend/providers/recordPanelProvider';
+import { recordVoice, stopRecording, cancelRecording } from './frontend/commands/recordVoice';
+import { initSecrets, promptForApiKey, clearApiKey } from './frontend/services/apiKey';
+
 
 /** Must stay in sync with activationEvents in package.json. */
 const SUPPORTED_LANGUAGES = [
@@ -16,6 +18,14 @@ const SUPPORTED_LANGUAGES = [
 ];
 
 export function activate(context: vscode.ExtensionContext) {
+
+  initSecrets(context);   // must run before any generation
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('docManager.setGeminiKey', promptForApiKey),
+    vscode.commands.registerCommand('docManager.clearGeminiKey', clearApiKey)
+  );
+
   // -------------------------------------------------------------------------
   // 1. The trigger: hovering a symbol
   // -------------------------------------------------------------------------
@@ -41,11 +51,10 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-  vscode.commands.registerCommand('docManager.recordDoc', (meta: SymbolMeta) =>
-    RecordPanelProvider.show(context.extensionUri, meta)
-  )
-  );
-
+  vscode.commands.registerCommand('docManager.recordDoc', recordVoice),
+  vscode.commands.registerCommand('docManager.stopRecording', stopRecording),
+  vscode.commands.registerCommand('docManager.cancelRecording', cancelRecording)
+ );
   // -------------------------------------------------------------------------
   // 3. Not built yet.
   //
