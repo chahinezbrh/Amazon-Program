@@ -43,6 +43,12 @@ const playMemoryProvider_1 = require("./providers/playMemoryProvider");
 const modificationNotifProvider_1 = require("./providers/modificationNotifProvider");
 const connectRepoProvider_1 = require("./providers/connectRepoProvider");
 const recordPanelProvider_1 = require("./providers/recordPanelProvider");
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
+const config_1 = require("../backend/config");
+const webhookClient_1 = require("../backend/services/webhookClient");
+const commitProcessor_1 = require("../backend/services/commitProcessor");
+const funcManagerStore_1 = require("../backend/services/funcManagerStore");
 function activate(context) {
     const hoverProvider = new hoverProvider_1.HoverProvider(context);
     // Register hover provider for all files
@@ -169,6 +175,37 @@ function activate(context) {
     const testModificationNotifCommand = vscode.commands.registerCommand('yourExtension.testModificationNotif', () => {
         modificationNotifProvider_1.ModificationNotifProvider.show(context.extensionUri, 'all');
     });
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (workspaceFolders && workspaceFolders.length > 0) {
+        const repoRoot = workspaceFolders[0].uri.fsPath;
+        const configPath = path.join(repoRoot, '.funcmanager', 'config.json');
+        if (fs.existsSync(configPath)) {
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+            if (config.repoUrl) {
+                const store = new funcManagerStore_1.FuncManagerStore(repoRoot);
+                const webhookClient = new webhookClient_1.WebhookClientService(config.repoUrl, config_1.RELAY_WS_URL);
+                webhookClient.on('push', async (payload) => {
+                    console.log(`[extension] push event received for ${repoRoot}`);
+                    try {
+                        const notifications = await (0, commitProcessor_1.handlePushWebhook)(repoRoot, payload.head_commit?.author?.name ?? 'Unknown', payload.head_commit?.message ?? '');
+                        console.log(`[extension] handlePushWebhook returned ${notifications.length} notifications`);
+                        if (notifications.length > 0) {
+                            store.appendNotifications(notifications);
+                            if (modificationNotifProvider_1.ModificationNotifProvider.currentPanel) {
+                                modificationNotifProvider_1.ModificationNotifProvider.currentPanel.updateNotifications(store.getNotifications());
+                            }
+                        }
+                    }
+                    catch (err) {
+                        console.log(`[extension] handlePushWebhook threw: ${err.message}`);
+                        vscode.window.showErrorMessage(`Failed to process incoming commit: ${err.message}`);
+                    }
+                });
+                webhookClient.connect();
+                context.subscriptions.push({ dispose: () => webhookClient.dispose() });
+            }
+        }
+    }
     context.subscriptions.push(hoverRegistration, connectRepoCommand, testConnectRepoCommand, showFunctionPopupCommand, testPopupCommand, showDocPanelCommand, openFullDocsCommand, testDocPanelCommand, recordDocCommand, docManagerRecordDocCommand, docManagerAddMemoryCommand, docManagerAiDocsCommand, docManagerWriteDocsCommand, docManagerPlayVoiceCommand, testRecordDocCommand, sideBarView, testSideBarCommand, testPlayMemoryCommand, showNotifCenterCommand, testModificationNotifCommand);
     setTimeout(() => {
         vscode.commands.executeCommand(`${sideBarProvider_1.SideBarProvider.viewId}.focus`).then(undefined, () => { });

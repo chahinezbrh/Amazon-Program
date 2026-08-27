@@ -76,7 +76,9 @@ async function cloneOrUpdateRepo(workspaceRoot, repoUrl, onProgress) {
     }
     else {
         onProgress?.('Cloning repository…');
-        await git.clone(repoUrl, targetPath, ['--depth', '1']);
+        await git.clone(repoUrl, targetPath); // full clone — no --depth, so commitProcessor's
+        // git show/git diff across old/new SHAs always has
+        // the history it needs
     }
     return targetPath;
 }

@@ -1,9 +1,10 @@
-import { diffLines } from 'diff'; 
+import { diffLines } from 'diff';
 import { readFunctionRecordsFile, writeFunctionRecordsFile, createFunctionRecords } from './createFunctionRecords';
 import { languageForPath } from '../db/fileWalker';
 import { parseTextForLanguage } from './parseText';
 import { currentHead, pullLatest, changedFilesBetween, fileContentAtRef } from './gitSync';
 import { CodeNotification, DiffLine } from '../../shared/types';
+import { FuncManagerStore } from './funcManagerStore';
 
 function buildDiffLines(before: string, after: string): DiffLine[] {
   const changes = diffLines(before, after);
@@ -25,18 +26,35 @@ export async function handlePushWebhook(
   commitAuthor: string,
   commitMessage: string
 ): Promise<CodeNotification[]> {
-  const oldSha = await currentHead(repoRoot);
-  const oldRecords = await readFunctionRecordsFile(repoRoot); // snapshot BEFORE pulling
+  const store = new FuncManagerStore(repoRoot);
 
   await pullLatest(repoRoot);
 
   const newSha = await currentHead(repoRoot);
-  if (newSha === oldSha) return [];
+  const storedSha = store.getLastProcessedSha();
 
+  if (storedSha === null) {
+    // Genuinely the first webhook ever processed for this repo — nothing
+    // to diff against yet. Establish the baseline now so the NEXT push
+    // has something real to compare, instead of falling back to newSha
+    // again and silently masking every future change.
+    console.log(`[handlePushWebhook] first run ever — establishing baseline at ${newSha}, no notifications this time`);
+    store.setLastProcessedSha(newSha);
+    return [];
+  }
+
+  const oldSha = storedSha;
+  console.log(`[handlePushWebhook] oldSha(stored) = ${oldSha}, newSha = ${newSha}`);
+
+  if (newSha === oldSha) {
+    console.log(`[handlePushWebhook] already processed this commit — exiting`);
+    return [];
+  }
+
+  const oldRecords = await readFunctionRecordsFile(repoRoot);
   const changedFiles = await changedFilesBetween(repoRoot, oldSha, newSha);
+  console.log(`[handlePushWebhook] changedFiles = ${JSON.stringify(changedFiles)}`);
 
-  // Full re-scan — same call createFunctionRecords always does; this
-  // already overwrites functions.json with fresh hashes (no previousHash yet).
   const newRecords = await createFunctionRecords(repoRoot);
 
   const notifications: CodeNotification[] = [];
@@ -44,7 +62,8 @@ export async function handlePushWebhook(
   for (const relFile of changedFiles) {
     const oldFns = oldRecords.files[relFile] ?? [];
     const newFns = newRecords.files[relFile] ?? [];
-    if (newFns.length === 0) continue; // deleted or unsupported file — skip for now
+    console.log(`[handlePushWebhook] ${relFile}: oldFns=${oldFns.length} newFns=${newFns.length}`);
+    if (newFns.length === 0) continue;
 
     const oldByName = new Map(oldFns.map((f) => [f.name, f]));
     const language = languageForPath(relFile);
@@ -53,9 +72,10 @@ export async function handlePushWebhook(
       const oldFn = oldByName.get(fn.name);
       const isNew = !oldFn;
       const isChanged = !!oldFn && oldFn.hash !== fn.hash;
+      console.log(`[handlePushWebhook] ${relFile}/${fn.name}: isNew=${isNew} isChanged=${isChanged} oldHash=${oldFn?.hash} newHash=${fn.hash}`);
       if (!isNew && !isChanged) continue;
 
-      if (isChanged) fn.previousHash = oldFn!.hash; // annotate the record we'll persist
+      if (isChanged) fn.previousHash = oldFn!.hash;
 
       let beforeBody = '';
       if (oldFn && language) {
@@ -94,8 +114,9 @@ export async function handlePushWebhook(
     }
   }
 
-  // persist the previousHash annotations we just added onto newRecords
+  console.log(`[handlePushWebhook] built ${notifications.length} notifications`);
   await writeFunctionRecordsFile(repoRoot, newRecords);
+  store.setLastProcessedSha(newSha);
 
   return notifications;
 }

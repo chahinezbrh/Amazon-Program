@@ -234,12 +234,14 @@ export function activate(context: vscode.ExtensionContext) {
         const webhookClient = new WebhookClientService(config.repoUrl, RELAY_WS_URL);
 
         webhookClient.on('push', async (payload) => {
+           console.log(`[extension] push event received for ${repoRoot}`);
           try {
             const notifications = await handlePushWebhook(
               repoRoot,
               payload.head_commit?.author?.name ?? 'Unknown',
               payload.head_commit?.message ?? ''
             );
+            console.log(`[extension] handlePushWebhook returned ${notifications.length} notifications`);
             if (notifications.length > 0) {
               store.appendNotifications(notifications);
               if (ModificationNotifProvider.currentPanel) {
@@ -247,6 +249,7 @@ export function activate(context: vscode.ExtensionContext) {
               }
             }
           } catch (err: any) {
+            console.log(`[extension] handlePushWebhook threw: ${err.message}`);
             vscode.window.showErrorMessage(`Failed to process incoming commit: ${err.message}`);
           }
         });

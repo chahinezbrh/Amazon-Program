@@ -207,7 +207,7 @@ export class ConnectRepoProvider {
                     message: 'Setting up live commit notifications…',
                 });
 
-                const githubToken = await getOrPromptGithubToken(this.context);
+                const githubToken = await getOrPromptGithubToken(this.context, resolvedRepoUrl);
                 if (!githubToken) {
                     vscode.window.showWarningMessage(
                         'No GitHub token provided — live commit notifications will not work until one is added.'

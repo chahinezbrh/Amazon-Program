@@ -50,16 +50,15 @@
       {
         "command": "yourExtension.testModificationNotif",
         "title": "Test: Show Notification Center"
+      },
+      {
+        "command": "docManager.recordDoc",
+        "title": "Record Documentation"
+      },
+      {
+        "command": "yourExtension.testRecordDoc",
+        "title": "Test: Show Record Panel"
       }
-      ,{
-      "command": "docManager.recordDoc",
-      "title": "Record Documentation"
-     },
-     {
-      "command": "yourExtension.testRecordDoc",
-      "title": "Test: Show Record Panel"
-     }
-     
     ],
     "viewsContainers": {
       "activitybar": [
@@ -102,6 +101,7 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.18.1",
     "esbuild": "^0.20.0",
     "typescript": "^5.3.0"
   },
@@ -118,6 +118,7 @@
     "tree-sitter-python": "^0.25.0",
     "tree-sitter-ruby": "^0.23.1",
     "tree-sitter-rust": "^0.24.0",
-    "tree-sitter-typescript": "^0.23.2"
+    "tree-sitter-typescript": "^0.23.2",
+    "ws": "^8.21.3"
   }
 }

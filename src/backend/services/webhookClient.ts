@@ -15,10 +15,12 @@ export class WebhookClientService extends EventEmitter {
   }
 
   connect() {
-    this.ws = new WebSocket(`${this.relayUrl}/ws`);
+    this.ws = new WebSocket(`${this.relayUrl}`);
 
     this.ws.on('open', () => {
+      console.log(`[WebhookClient] connected, registering for ${this.repoUrl}`);
       this.ws?.send(JSON.stringify({ type: 'register', repoUrl: this.repoUrl }));
+
     });
 
     this.ws.on('message', (raw) => {
@@ -30,6 +32,7 @@ export class WebhookClientService extends EventEmitter {
 
     this.ws.on('close', () => {
       setTimeout(() => this.connect(), this.reconnectDelay);
+
     });
 
     this.ws.on('error', (err) => {

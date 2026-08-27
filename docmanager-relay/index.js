@@ -73,6 +73,8 @@ wss.on('connection', (ws) => {
     }
     if (msg.type === 'register' && typeof msg.repoUrl === 'string') {
       registeredRepo = normalizeRepoUrl(msg.repoUrl);
+      console.log(`[relay] registered: ${registeredRepo}`);  //added this for debug
+
       if (!registry.has(registeredRepo)) registry.set(registeredRepo, new Set());
       registry.get(registeredRepo).add(ws);
     }

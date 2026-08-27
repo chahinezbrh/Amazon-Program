@@ -7,24 +7,29 @@ import * as vscode from 'vscode';
 
 const SECRET_KEY = 'funcmanager.githubToken';
 
+// src/backend/services/githubAuth.ts
+
 export async function getOrPromptGithubToken(
-  context: vscode.ExtensionContext
+  context: vscode.ExtensionContext,
+  repoUrl: string
 ): Promise<string | undefined> {
-  const existing = await context.secrets.get(SECRET_KEY);
+  const secretKey = `funcmanager.githubToken.${repoUrl.trim().toLowerCase()}`;
+
+  const existing = await context.secrets.get(secretKey);
   if (existing) return existing;
 
   const token = await vscode.window.showInputBox({
     title: 'GitHub Personal Access Token',
     prompt:
-      'docManager needs a token with the "admin:repo_hook" scope to register a push webhook on this repo. ' +
+      `FuncManager needs a token with the "admin:repo_hook" scope for ${repoUrl}. ` +
       'Generate one at https://github.com/settings/tokens and paste it here.',
-    password: true, // masks input in the UI
+    password: true,
     ignoreFocusOut: true,
     validateInput: (value) => (value.trim().length === 0 ? 'Token cannot be empty' : undefined),
   });
 
-  if (!token) return undefined; // user cancelled
+  if (!token) return undefined;
 
-  await context.secrets.store(SECRET_KEY, token.trim());
+  await context.secrets.store(secretKey, token.trim());
   return token.trim();
 }

@@ -6,10 +6,22 @@ export class FuncManagerStore {
   private funcmanagerDir: string;
   private notificationsPath: string;
 
+  private lastShaPath: string;
+
   constructor(repoRoot: string) {
     this.funcmanagerDir = path.join(repoRoot, '.funcmanager');
     this.notificationsPath = path.join(this.funcmanagerDir, 'notifications.json');
+    this.lastShaPath = path.join(this.funcmanagerDir, 'lastProcessedSha.json');
     if (!fs.existsSync(this.notificationsPath)) this.writeJson(this.notificationsPath, []);
+  }
+
+    getLastProcessedSha(): string | null {
+    if (!fs.existsSync(this.lastShaPath)) return null;
+    return this.readJson(this.lastShaPath).sha ?? null;
+  }
+
+  setLastProcessedSha(sha: string) {
+    this.writeJson(this.lastShaPath, { sha });
   }
 
   private readJson(p: string): any {
