@@ -33,6 +33,14 @@
         "command": "docManager.recordDoc",
         "title": "Record Voice Documentation"
       },
+      { "command": "docManager.stopRecording", 
+        "title": "Stop Recording", "category": "Doc Manager" 
+      },
+
+      { "command": "docManager.cancelRecording", 
+        "title": "Cancel Recording", "category": "Doc Manager" 
+      },
+
       {
         "command": "docManager.testShowDocPanel",
         "title": "Doc Manager: Test Show Doc Panel (mock data)"
@@ -42,6 +50,16 @@
         "title": "Import Documentation from Comments",
         "category": "Doc Manager",
         "icon": "$(sync)"
+      },
+      {
+        "command": "docManager.setGeminiKey", 
+        "title": "Set Gemini API Key", 
+        "category": "Doc Manager" 
+      },
+      { 
+        "command": "docManager.clearGeminiKey", 
+        "title": "Remove Gemini API Key", 
+        "category": "Doc Manager" 
       }
     ],
     "menus": {
@@ -55,7 +73,26 @@
         "group": "navigation"
       }
     ]
-}
+    },
+
+    "configuration": {
+      "title": "Doc Manager",
+      "properties": {
+      "docManager.ffmpegPath": {
+        "type": "string",
+        "default": "ffmpeg",
+        "description": "Path to the ffmpeg binary."
+      },
+      "docManager.audioDevice": {
+        "type": "string",
+        "description": "Remembered microphone. Clear this to be asked again."
+      },
+      "docManager.author": {
+        "type": "string",
+        "description": "Name recorded as the author of documentation you write."
+      }
+  }
+  }
   },
   "scripts": {
     "compile": "tsc -p ./",
