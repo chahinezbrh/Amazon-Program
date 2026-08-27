@@ -48,7 +48,10 @@ export type ExtensionToWebviewMessage =
   | { type: 'meta'; payload: SymbolMeta }
   | { type: 'entries'; payload: DocEntry[] }
   | { type: 'error'; message: string }
-  | { type: 'audioUrl'; entryId: string; url: string };
+  | { type: 'audioUrl'; entryId: string; url: string }
+  | { type: 'aiPending' }
+  | { type: 'aiDraft'; content: string }
+  | { type: 'aiError'; message: string };
 
 /** Messages sent from the webview up to the extension host. */
 export type WebviewToExtensionMessage =
@@ -58,4 +61,8 @@ export type WebviewToExtensionMessage =
   | { type: 'generateWithAI' }
   | { type: 'saveWritten'; entryId: string; content: string }
   | { type: 'reRecordVoice' }
-  | { type: 'jumpToSymbol' };
+  | { type: 'jumpToSymbol' }
+  | { type: 'generateAi'; instruction?: string }
+  | { type: 'saveAi'; content: string }
+  | { type: 'discardAi' };
+
