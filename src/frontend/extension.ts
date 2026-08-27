@@ -13,6 +13,8 @@ import { RELAY_WS_URL } from '../backend/config';
 import { WebhookClientService } from '../backend/services/webhookClient';
 import { handlePushWebhook } from '../backend/services/commitProcessor';
 import { FuncManagerStore } from '../backend/services/funcManagerStore';
+import { NotificationsBellProvider } from './providers/notificationsBellProvider';
+
 
 
 export function activate(context: vscode.ExtensionContext) {
@@ -194,6 +196,12 @@ export function activate(context: vscode.ExtensionContext) {
     sideBarProvider
   );
 
+  const notificationsBellProvider = new NotificationsBellProvider();
+  const notificationsBellView = vscode.window.registerWebviewViewProvider(
+    'amazonProgram.notificationsView',
+    notificationsBellProvider
+  );
+
   const testSideBarCommand = vscode.commands.registerCommand('yourExtension.testSideBar', () => {
     vscode.commands.executeCommand(`${SideBarProvider.viewId}.focus`);
   });
@@ -277,6 +285,7 @@ export function activate(context: vscode.ExtensionContext) {
     docManagerPlayVoiceCommand,
     testRecordDocCommand,
     sideBarView,
+    notificationsBellView, 
     testSideBarCommand,
     testPlayMemoryCommand,
     showNotifCenterCommand,

@@ -49,6 +49,7 @@ const config_1 = require("../backend/config");
 const webhookClient_1 = require("../backend/services/webhookClient");
 const commitProcessor_1 = require("../backend/services/commitProcessor");
 const funcManagerStore_1 = require("../backend/services/funcManagerStore");
+const notificationsBellProvider_1 = require("./providers/notificationsBellProvider");
 function activate(context) {
     const hoverProvider = new hoverProvider_1.HoverProvider(context);
     // Register hover provider for all files
@@ -158,6 +159,8 @@ function activate(context) {
     });
     const sideBarProvider = new sideBarProvider_1.SideBarProvider(context.extensionUri);
     const sideBarView = vscode.window.registerWebviewViewProvider(sideBarProvider_1.SideBarProvider.viewId, sideBarProvider);
+    const notificationsBellProvider = new notificationsBellProvider_1.NotificationsBellProvider();
+    const notificationsBellView = vscode.window.registerWebviewViewProvider('amazonProgram.notificationsView', notificationsBellProvider);
     const testSideBarCommand = vscode.commands.registerCommand('yourExtension.testSideBar', () => {
         vscode.commands.executeCommand(`${sideBarProvider_1.SideBarProvider.viewId}.focus`);
     });
@@ -206,7 +209,7 @@ function activate(context) {
             }
         }
     }
-    context.subscriptions.push(hoverRegistration, connectRepoCommand, testConnectRepoCommand, showFunctionPopupCommand, testPopupCommand, showDocPanelCommand, openFullDocsCommand, testDocPanelCommand, recordDocCommand, docManagerRecordDocCommand, docManagerAddMemoryCommand, docManagerAiDocsCommand, docManagerWriteDocsCommand, docManagerPlayVoiceCommand, testRecordDocCommand, sideBarView, testSideBarCommand, testPlayMemoryCommand, showNotifCenterCommand, testModificationNotifCommand);
+    context.subscriptions.push(hoverRegistration, connectRepoCommand, testConnectRepoCommand, showFunctionPopupCommand, testPopupCommand, showDocPanelCommand, openFullDocsCommand, testDocPanelCommand, recordDocCommand, docManagerRecordDocCommand, docManagerAddMemoryCommand, docManagerAiDocsCommand, docManagerWriteDocsCommand, docManagerPlayVoiceCommand, testRecordDocCommand, sideBarView, notificationsBellView, testSideBarCommand, testPlayMemoryCommand, showNotifCenterCommand, testModificationNotifCommand);
     setTimeout(() => {
         vscode.commands.executeCommand(`${sideBarProvider_1.SideBarProvider.viewId}.focus`).then(undefined, () => { });
     }, 300);
