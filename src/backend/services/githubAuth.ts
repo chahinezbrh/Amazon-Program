@@ -5,15 +5,21 @@
 
 import * as vscode from 'vscode';
 
-const SECRET_KEY = 'funcmanager.githubToken';
+// Bump this string (v2, v3, ...) any time you want every repo to be
+// re-prompted for a token — old keys under the previous version become
+// permanently unreachable, which is a cheap way to "clear all tokens" for
+// testing without needing to enumerate or delete anything from SecretStorage.
+const TOKEN_VERSION = 'v2';
 
-// src/backend/services/githubAuth.ts
+function secretKeyFor(repoUrl: string): string {
+  return `funcmanager.githubToken.${TOKEN_VERSION}.${repoUrl.trim().toLowerCase()}`;
+}
 
 export async function getOrPromptGithubToken(
   context: vscode.ExtensionContext,
   repoUrl: string
 ): Promise<string | undefined> {
-  const secretKey = `funcmanager.githubToken.${repoUrl.trim().toLowerCase()}`;
+  const secretKey = secretKeyFor(repoUrl);
 
   const existing = await context.secrets.get(secretKey);
   if (existing) return existing;
