@@ -15,6 +15,7 @@ const SUPPORTED_LANGUAGES = [
   'typescript',
   'javascriptreact',
   'typescriptreact',
+  'python',
 ];
 
 export function activate(context: vscode.ExtensionContext) {
