@@ -9,12 +9,7 @@
   "categories": ["Other"],
   "main": "./out/extension.js",
   "activationEvents": [
-    "onStartupFinished",
-    "onLanguage:javascript",
-    "onLanguage:typescript",
-    "onLanguage:typescriptreact",
-    "onLanguage:javascriptreact",
-    "onLanguage:python"
+    "onStartupFinished"
   ],
   "contributes": {
     "commands": [
