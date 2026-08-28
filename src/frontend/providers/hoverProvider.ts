@@ -10,7 +10,7 @@ const DOCUMENTABLE_KINDS = new Set<vscode.SymbolKind>([
   vscode.SymbolKind.Function,
   vscode.SymbolKind.Method,
   vscode.SymbolKind.Constructor,
-  vscode.SymbolKind.Variable,
+  vscode.SymbolKind.Class,
 ]);
 
 export class HoverProvider implements vscode.HoverProvider {
