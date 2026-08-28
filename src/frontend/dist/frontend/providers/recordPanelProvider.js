@@ -57,7 +57,7 @@ class RecordPanelProvider {
             // alive in the background, leaving the OS recording indicator lit.
             retainContextWhenHidden: false,
             localResourceRoots: [
-                vscode.Uri.joinPath(extensionUri, 'dist', 'webview', 'recordPanel'),
+                vscode.Uri.joinPath(extensionUri, 'out', 'frontend', 'webviews', 'recordPanel'),
             ],
         });
         RecordPanelProvider.current = new RecordPanelProvider(panel, extensionUri, meta);
@@ -122,7 +122,7 @@ class RecordPanelProvider {
         }
     }
     getHtml(webview) {
-        const base = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'recordPanel');
+        const base = vscode.Uri.joinPath(this.extensionUri, 'out', 'frontend', 'webviews', 'recordPanel');
         const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'recordPanel.css'));
         const jsUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'recordPanel.js'));
         const nonce = getNonce();

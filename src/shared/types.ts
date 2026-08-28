@@ -84,10 +84,13 @@ export type WebviewToExtensionMessage =
   | { type: 'ready' }
   | { type: 'requestAudio'; entryId: string }
   | { type: 'editWritten'; entryId?: string }
-  | { type: 'reRecordVoice' }
   | { type: 'generateWithAI' }
+  | { type: 'saveWritten'; entryId: string; content: string }
+  | { type: 'reRecordVoice' }
   | { type: 'jumpToSymbol' }
-  | { type: 'saveWritten'; entryId?: string; content: string };
+  | { type: 'generateAi'; instruction?: string }
+  | { type: 'saveAi'; content: string }
+  | { type: 'discardAi' };
 
 
 /** Messages sent from the extension host down to the webview. */
@@ -95,7 +98,10 @@ export type ExtensionToWebviewMessage =
   | { type: 'meta'; payload: SymbolMeta }
   | { type: 'entries'; payload: DocEntry[] }
   | { type: 'error'; message: string }
-  | { type: 'audioUrl'; entryId: string; url: string };
+  | { type: 'audioUrl'; entryId: string; url: string }
+  | { type: 'aiPending' }
+  | { type: 'aiDraft'; content: string }
+  | { type: 'aiError'; message: string };
 
 // shared/types.ts — add this near CodeNotification, nothing else touched
 export interface DiffLine {

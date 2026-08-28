@@ -9,7 +9,7 @@
 
 import * as vscode from 'vscode';
 import type { SymbolMeta } from '../../shared/types';
-import {saveAudio} from '../../backend/services/audioStore';
+import { saveAudio } from '../../backend/services/audioStore';
 import { saveDoc, currentAuthor, getDocsForSymbol } from '../services/docClient';
 import { DocPanelProvider } from './DocPanelProvider';
 
@@ -42,7 +42,13 @@ export class RecordPanelProvider {
         // alive in the background, leaving the OS recording indicator lit.
         retainContextWhenHidden: false,
         localResourceRoots: [
-          vscode.Uri.joinPath(extensionUri, 'dist', 'webview', 'recordPanel'),
+          vscode.Uri.joinPath(
+            extensionUri,
+            'out',
+            'frontend',
+            'webviews',
+            'recordPanel'
+          ),
         ],
       }
     );
@@ -149,8 +155,9 @@ export class RecordPanelProvider {
   private getHtml(webview: vscode.Webview): string {
     const base = vscode.Uri.joinPath(
       this.extensionUri,
-      'dist',
-      'webview',
+      'out',
+      'frontend',
+      'webviews',
       'recordPanel'
     );
     const cssUri = webview.asWebviewUri(

@@ -50,8 +50,11 @@ const webhookClient_1 = require("../backend/services/webhookClient");
 const commitProcessor_1 = require("../backend/services/commitProcessor");
 const funcManagerStore_1 = require("../backend/services/funcManagerStore");
 const notificationsBellProvider_1 = require("./providers/notificationsBellProvider");
+const apiKey_1 = require("./services/apiKey");
+const scanRepo_1 = require("./commands/scanRepo");
 function activate(context) {
-    const hoverProvider = new hoverProvider_1.HoverProvider(context);
+    (0, apiKey_1.initSecrets)(context); // must run before any generation — from teammate's setup
+    const hoverProvider = new hoverProvider_1.HoverProvider();
     // Register hover provider for all files
     const hoverRegistration = vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider);
     connectRepoProvider_1.ConnectRepoProvider.checkAndPrompt(context);
@@ -60,12 +63,6 @@ function activate(context) {
     });
     const testConnectRepoCommand = vscode.commands.registerCommand('yourExtension.testConnectRepo', () => {
         connectRepoProvider_1.ConnectRepoProvider.show(context);
-    });
-    const showFunctionPopupCommand = vscode.commands.registerCommand('yourExtension.showFunctionPopup', (meta) => {
-        hoverProvider.showForFunction(meta.symbolName, meta.filePath, meta.startLine, meta.endLine);
-    });
-    const testPopupCommand = vscode.commands.registerCommand('yourExtension.testPopup', () => {
-        hoverProvider.showForFunction('authenticateUser', 'src/auth/middleware.js');
     });
     const showDocPanelCommand = vscode.commands.registerCommand('docManager.showDocPanel', (meta) => {
         DocPanelProvider_1.DocPanelProvider.show(context.extensionUri, meta);
@@ -178,6 +175,23 @@ function activate(context) {
     const testModificationNotifCommand = vscode.commands.registerCommand('yourExtension.testModificationNotif', () => {
         modificationNotifProvider_1.ModificationNotifProvider.show(context.extensionUri, 'all');
     });
+    // ── From teammate's branch: Gemini API key management ──────────────
+    const setGeminiKeyCommand = vscode.commands.registerCommand('docManager.setGeminiKey', apiKey_1.promptForApiKey);
+    const clearGeminiKeyCommand = vscode.commands.registerCommand('docManager.clearGeminiKey', apiKey_1.clearApiKey);
+    // ── From teammate's branch: repo scan command ───────────────────────
+    const scanRepoCommand = vscode.commands.registerCommand('docManager.scanRepo', scanRepo_1.scanRepo);
+    // ── Hover card "no docs yet" actions ────────────────────────────────
+    // These are called from hoverProvider.ts's buildMarkdown() with the
+    // symbol's SymbolMeta as the argument (command:docManager.editDoc?args).
+    const editDocCommand = vscode.commands.registerCommand('docManager.editDoc', (meta) => {
+        if (meta) {
+            DocPanelProvider_1.DocPanelProvider.show(context.extensionUri, meta);
+        }
+    });
+    const generateDocCommand = vscode.commands.registerCommand('docManager.generateDoc', (meta) => {
+        vscode.window.showInformationMessage(`AI Documentation requested for ${meta?.symbolName || 'symbol'}.`);
+        // TODO: wire this to the real AI-generation service once it exists.
+    });
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (workspaceFolders && workspaceFolders.length > 0) {
         const repoRoot = workspaceFolders[0].uri.fsPath;
@@ -209,7 +223,7 @@ function activate(context) {
             }
         }
     }
-    context.subscriptions.push(hoverRegistration, connectRepoCommand, testConnectRepoCommand, showFunctionPopupCommand, testPopupCommand, showDocPanelCommand, openFullDocsCommand, testDocPanelCommand, recordDocCommand, docManagerRecordDocCommand, docManagerAddMemoryCommand, docManagerAiDocsCommand, docManagerWriteDocsCommand, docManagerPlayVoiceCommand, testRecordDocCommand, sideBarView, notificationsBellView, testSideBarCommand, testPlayMemoryCommand, showNotifCenterCommand, testModificationNotifCommand);
+    context.subscriptions.push(hoverRegistration, connectRepoCommand, testConnectRepoCommand, showDocPanelCommand, openFullDocsCommand, testDocPanelCommand, recordDocCommand, docManagerRecordDocCommand, docManagerAddMemoryCommand, docManagerAiDocsCommand, docManagerWriteDocsCommand, docManagerPlayVoiceCommand, testRecordDocCommand, sideBarView, notificationsBellView, testSideBarCommand, testPlayMemoryCommand, showNotifCenterCommand, testModificationNotifCommand, setGeminiKeyCommand, clearGeminiKeyCommand, scanRepoCommand, editDocCommand, generateDocCommand);
     setTimeout(() => {
         vscode.commands.executeCommand(`${sideBarProvider_1.SideBarProvider.viewId}.focus`).then(undefined, () => { });
     }, 300);

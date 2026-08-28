@@ -14,11 +14,13 @@ import { WebhookClientService } from '../backend/services/webhookClient';
 import { handlePushWebhook } from '../backend/services/commitProcessor';
 import { FuncManagerStore } from '../backend/services/funcManagerStore';
 import { NotificationsBellProvider } from './providers/notificationsBellProvider';
-
-
+import { initSecrets, promptForApiKey, clearApiKey } from './services/apiKey';
+import { scanRepo } from './commands/scanRepo';
 
 export function activate(context: vscode.ExtensionContext) {
-  const hoverProvider = new HoverProvider(context);
+  initSecrets(context); // must run before any generation — from teammate's setup
+
+  const hoverProvider = new HoverProvider();
 
   // Register hover provider for all files
   const hoverRegistration = vscode.languages.registerHoverProvider(
@@ -41,22 +43,6 @@ export function activate(context: vscode.ExtensionContext) {
       ConnectRepoProvider.show(context);
     }
   );
-
-  const showFunctionPopupCommand = vscode.commands.registerCommand(
-    'yourExtension.showFunctionPopup',
-    (meta: SymbolMeta) => {
-      hoverProvider.showForFunction(
-        meta.symbolName,
-        meta.filePath,
-        meta.startLine,
-        meta.endLine
-      );
-    }
-  );
-
-  const testPopupCommand = vscode.commands.registerCommand('yourExtension.testPopup', () => {
-    hoverProvider.showForFunction('authenticateUser', 'src/auth/middleware.js');
-  });
 
   const showDocPanelCommand = vscode.commands.registerCommand(
     'docManager.showDocPanel',
@@ -229,6 +215,41 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // ── From teammate's branch: Gemini API key management ──────────────
+  const setGeminiKeyCommand = vscode.commands.registerCommand(
+    'docManager.setGeminiKey',
+    promptForApiKey
+  );
+  const clearGeminiKeyCommand = vscode.commands.registerCommand(
+    'docManager.clearGeminiKey',
+    clearApiKey
+  );
+
+  // ── From teammate's branch: repo scan command ───────────────────────
+  const scanRepoCommand = vscode.commands.registerCommand('docManager.scanRepo', scanRepo);
+
+  // ── Hover card "no docs yet" actions ────────────────────────────────
+  // These are called from hoverProvider.ts's buildMarkdown() with the
+  // symbol's SymbolMeta as the argument (command:docManager.editDoc?args).
+  const editDocCommand = vscode.commands.registerCommand(
+    'docManager.editDoc',
+    (meta: SymbolMeta) => {
+      if (meta) {
+        DocPanelProvider.show(context.extensionUri, meta);
+      }
+    }
+  );
+
+  const generateDocCommand = vscode.commands.registerCommand(
+    'docManager.generateDoc',
+    (meta: SymbolMeta) => {
+      vscode.window.showInformationMessage(
+        `AI Documentation requested for ${meta?.symbolName || 'symbol'}.`
+      );
+      // TODO: wire this to the real AI-generation service once it exists.
+    }
+  );
+
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (workspaceFolders && workspaceFolders.length > 0) {
     const repoRoot = workspaceFolders[0].uri.fsPath;
@@ -242,7 +263,7 @@ export function activate(context: vscode.ExtensionContext) {
         const webhookClient = new WebhookClientService(config.repoUrl, RELAY_WS_URL);
 
         webhookClient.on('push', async (payload) => {
-           console.log(`[extension] push event received for ${repoRoot}`);
+          console.log(`[extension] push event received for ${repoRoot}`);
           try {
             const notifications = await handlePushWebhook(
               repoRoot,
@@ -272,8 +293,6 @@ export function activate(context: vscode.ExtensionContext) {
     hoverRegistration,
     connectRepoCommand,
     testConnectRepoCommand,
-    showFunctionPopupCommand,
-    testPopupCommand,
     showDocPanelCommand,
     openFullDocsCommand,
     testDocPanelCommand,
@@ -285,11 +304,16 @@ export function activate(context: vscode.ExtensionContext) {
     docManagerPlayVoiceCommand,
     testRecordDocCommand,
     sideBarView,
-    notificationsBellView, 
+    notificationsBellView,
     testSideBarCommand,
     testPlayMemoryCommand,
     showNotifCenterCommand,
-    testModificationNotifCommand
+    testModificationNotifCommand,
+    setGeminiKeyCommand,
+    clearGeminiKeyCommand,
+    scanRepoCommand,
+    editDocCommand,
+    generateDocCommand
   );
 
   setTimeout(() => {

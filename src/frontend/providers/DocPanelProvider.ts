@@ -1,22 +1,20 @@
 import * as vscode from 'vscode';
 import { DocEntry, SymbolMeta, WebviewToExtensionMessage } from '../../shared/types';
 import { getDocsForSymbol, saveDoc, currentAuthor } from '../services/docClient';
+import { generateDocumentation, type Turn } from '../../backend/services/geminiService';
+import { requireApiKey } from '../services/apiKey';
 
 /**
- * Manages the "Show Doc" side panel: a single reusable webview that
- * displays every documentation entry (source, written, AI-generated, voice)
- * attached to whichever symbol the user hovered on.
+ * Manages the "Show Doc" side panel: a single reusable webview that displays
+ * every documentation entry (source, written, AI-generated, voice) attached to
+ * whichever symbol the user hovered on.
  *
- * The panel opens INSTANTLY with just the symbol's name/location (known
- * synchronously from the hover), then shows a loading state in its content
- * area until the caller pushes the actual entries in via `updateEntries()`.
- * This matters when entries come from a slow lookup — the user gets visual
- * feedback right away instead of a dead click while `getDocsForSymbol()`
- * resolves.
+ * The panel opens INSTANTLY with just the symbol's name and location (known
+ * synchronously from the hover), then shows a loading state until the caller
+ * pushes entries in via `updateEntries()`.
  *
- * There is only ever one panel open at a time — calling `show()` again
- * just reveals it and swaps its content, the same way VS Code's own
- * "Problems" or "Output" panels behave.
+ * There is only ever one panel open at a time — calling `show()` again just
+ * reveals it and swaps its content, the way VS Code's own panels behave.
  */
 export class DocPanelProvider {
   public static currentPanel: DocPanelProvider | undefined;
@@ -30,6 +28,11 @@ export class DocPanelProvider {
   /** undefined = still loading, DocEntry[] = loaded (possibly empty), null = load failed. */
   private currentEntries: DocEntry[] | undefined | null = undefined;
   private currentError: string | undefined;
+
+  /** Refinement turns for the AI draft currently on screen. Deliberately not
+   *  persisted: docs.json stores the accepted documentation, not the
+   *  conversation that produced it. Cleared whenever the symbol changes. */
+  private aiHistory: Turn[] = [];
 
   /** Opens (or reveals + resets) the panel immediately, before entries are known. */
   public static show(extensionUri: vscode.Uri, meta: SymbolMeta) {
@@ -51,8 +54,8 @@ export class DocPanelProvider {
         localResourceRoots: [
           // The bundled webview, emitted by build:webview.
           vscode.Uri.joinPath(extensionUri, 'out', 'frontend', 'webviews', 'docPanel'),
-          // Voice recordings live in the USER'S repo (.docmanager/audio), not
-          // in the extension folder. A webview refuses to load any file outside
+          // Voice recordings live in the USER'S repo (.docmanager/audio), not in
+          // the extension folder. A webview refuses to load any file outside
           // these roots, so without this the audio silently never plays.
           ...(vscode.workspace.workspaceFolders?.map((folder) => folder.uri) ?? []),
         ],
@@ -81,7 +84,11 @@ export class DocPanelProvider {
     this.panel.webview.postMessage({ type: 'error', message });
   }
 
-  private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, meta: SymbolMeta) {
+  private constructor(
+    panel: vscode.WebviewPanel,
+    extensionUri: vscode.Uri,
+    meta: SymbolMeta
+  ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.currentMeta = meta;
@@ -99,6 +106,7 @@ export class DocPanelProvider {
     this.currentMeta = meta;
     this.currentEntries = undefined; // back to loading
     this.currentError = undefined;
+    this.aiHistory = [];
     this.panel.title = `Docs: ${meta.symbolName}`;
     this.panel.webview.postMessage({ type: 'meta', payload: meta });
   }
@@ -110,7 +118,10 @@ export class DocPanelProvider {
         // brought it back) — replay whatever state we currently have.
         this.panel.webview.postMessage({ type: 'meta', payload: this.currentMeta });
         if (this.currentEntries) {
-          this.panel.webview.postMessage({ type: 'entries', payload: this.currentEntries });
+          this.panel.webview.postMessage({
+            type: 'entries',
+            payload: this.currentEntries,
+          });
         } else if (this.currentEntries === null && this.currentError) {
           this.panel.webview.postMessage({ type: 'error', message: this.currentError });
         }
@@ -120,9 +131,9 @@ export class DocPanelProvider {
         const entry = this.currentEntries?.find((e) => e.id === message.entryId);
         if (!entry?.audioPath) break;
 
-        // audioPath is stored RELATIVE to the repo root (".docmanager/audio/x.webm")
-        // so a recording made here still resolves after a teammate clones to a
-        // different path. Resolve it against the workspace only at playback time.
+        // audioPath is stored RELATIVE to the repo root so a recording made here
+        // still resolves after a teammate clones to a different path. Resolve it
+        // against the workspace only at playback time.
         const folder = vscode.workspace.getWorkspaceFolder(
           vscode.Uri.file(this.currentMeta.filePath)
         );
@@ -137,18 +148,45 @@ export class DocPanelProvider {
         break;
       }
 
-      case 'editWritten': {
-        const entry = this.currentEntries?.find((e) => e.id === message.entryId);
-        vscode.commands.executeCommand('docManager.editDoc', entry ?? this.currentMeta);
+      case 'saveWritten': {
+        await saveDoc({
+          type: 'written',
+          meta: this.currentMeta,
+          content: message.content,
+          author: currentAuthor(),
+        });
+
+        // Read back from disk rather than reusing the cached array: the saved
+        // entry gets its real timestamp and isStale from the service.
+        const fresh = await getDocsForSymbol(this.currentMeta);
+        this.currentEntries = fresh;
+        this.panel.webview.postMessage({ type: 'entries', payload: fresh });
         break;
       }
 
-      case 'reRecordVoice':
-        vscode.commands.executeCommand('docManager.recordDoc', this.currentMeta);
+      case 'generateAi':
+        await this.generateAi(message.instruction);
         break;
 
-      case 'generateWithAI':
-        vscode.commands.executeCommand('docManager.generateDoc', this.currentMeta);
+      case 'saveAi': {
+        await saveDoc({
+          type: 'ai',
+          meta: this.currentMeta,
+          content: message.content,
+        });
+        this.aiHistory = [];
+        const refreshed = await getDocsForSymbol(this.currentMeta);
+        this.currentEntries = refreshed;
+        this.panel.webview.postMessage({ type: 'entries', payload: refreshed });
+        break;
+      }
+
+      case 'discardAi':
+        this.aiHistory = [];
+        break;
+
+      case 'reRecordVoice':
+        vscode.commands.executeCommand('docManager.recordDoc', this.currentMeta);
         break;
 
       case 'jumpToSymbol': {
@@ -164,48 +202,73 @@ export class DocPanelProvider {
         });
         break;
       }
+    }
+  }
 
-      case 'saveWritten': {
-        if (!this.currentMeta) break;
+  /**
+   * Generates or refines an AI draft and pushes it to the panel UNSAVED.
+   * Nothing reaches docs.json until the user presses Save.
+   */
+  private async generateAi(instruction?: string): Promise<void> {
+    const apiKey = await requireApiKey();
+    if (!apiKey) {
+      this.panel.webview.postMessage({
+        type: 'aiError',
+        message: 'A Gemini API key is needed to generate documentation.',
+      });
+      return;
+    }
 
-        await saveDoc({
-          type: 'written',
-          meta: this.currentMeta,
-          content: message.content,
-          author: currentAuthor(),
-        });
+    this.panel.webview.postMessage({ type: 'aiPending' });
 
-        // Read back what is now on disk rather than reusing the cached array:
-        // the saved entry gets its real timestamp and isStale from the service.
-        const fresh = await getDocsForSymbol(this.currentMeta);
-        this.currentEntries = fresh;
-        this.panel.webview.postMessage({ type: 'entries', payload: fresh });
-        break;
-      }
+    try {
+      const document = await vscode.workspace.openTextDocument(
+        vscode.Uri.file(this.currentMeta.filePath)
+      );
+
+      // The live buffer, so unsaved edits get documented rather than the last
+      // version written to disk.
+      const source = document.getText(
+        new vscode.Range(this.currentMeta.startLine, 0, this.currentMeta.endLine + 1, 0)
+      );
+
+      const existingComment = this.currentEntries?.find(
+        (entry) => entry.type === 'source'
+      )?.content;
+
+      const content = await generateDocumentation(apiKey, {
+        symbolName: this.currentMeta.symbolName,
+        filePath: vscode.workspace.asRelativePath(this.currentMeta.filePath),
+        source,
+        ...(existingComment ? { existingComment } : {}),
+        history: this.aiHistory,
+        ...(instruction ? { instruction } : {}),
+      });
+
+      // Gemini keeps no session, so every turn resends the history.
+      if (instruction) this.aiHistory.push({ role: 'user', text: instruction });
+      this.aiHistory.push({ role: 'model', text: content });
+
+      this.panel.webview.postMessage({ type: 'aiDraft', content });
+    } catch (err) {
+      console.error('AI generation failed:', err);
+      this.panel.webview.postMessage({
+      type: 'aiError',
+        message: err instanceof Error ? err.message : 'Generation failed.',
+      });
     }
   }
 
   private getHtml(webview: vscode.Webview): string {
-    const cssUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this.extensionUri,
-        'out',
-        'frontend',
-        'webviews',
-        'docPanel',
-        'docPanel.css'
-      )
+    const base = vscode.Uri.joinPath(
+      this.extensionUri,
+      'out',
+      'frontend',
+      'webviews',
+      'docPanel'
     );
-    const jsUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this.extensionUri,
-        'out',
-        'frontend',
-        'webviews',
-        'docPanel',
-        'docPanel.js'
-      )
-    );
+    const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'docPanel.css'));
+    const jsUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'docPanel.js'));
     const nonce = getNonce();
 
     // media-src needs blob: as well as cspSource — without it the CSP blocks

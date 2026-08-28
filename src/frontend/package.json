@@ -58,6 +58,18 @@
       {
         "command": "yourExtension.testRecordDoc",
         "title": "Test: Show Record Panel"
+      },
+      {
+        "command": "docManager.setGeminiKey",
+        "title": "CMS Memory: Set Gemini API Key"
+      },
+      {
+        "command": "docManager.clearGeminiKey",
+        "title": "CMS Memory: Clear Gemini API Key"
+      },
+      {
+        "command": "docManager.scanRepo",
+        "title": "CMS Memory: Scan Repository"
       }
     ],
     "viewsContainers": {
