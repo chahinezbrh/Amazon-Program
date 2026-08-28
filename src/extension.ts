@@ -11,11 +11,9 @@ import { initSecrets, promptForApiKey, clearApiKey } from './frontend/services/a
 
 /** Must stay in sync with activationEvents in package.json. */
 const SUPPORTED_LANGUAGES = [
-  'javascript',
-  'typescript',
-  'javascriptreact',
-  'typescriptreact',
-  'python',
+  'javascript', 'javascriptreact', 'typescript', 'typescriptreact',
+  'python', 'java', 'csharp', 'cpp', 'c', 'go', 'rust',
+  'php', 'ruby', 'kotlin', 'swift', 'scala', 'dart', 'lua',
 ];
 
 export function activate(context: vscode.ExtensionContext) {
