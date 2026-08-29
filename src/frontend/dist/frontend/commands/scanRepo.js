@@ -47,13 +47,13 @@ const commentExtractor_1 = require("../../backend/services/commentExtractor");
 const docFileStore_1 = require("../../backend/services/docFileStore");
 const DocPanelProvider_1 = require("../providers/DocPanelProvider");
 const docClient_1 = require("../services/docClient");
-const SOURCE_GLOB = '**/*.{js,jsx,ts,tsx}';
+const SOURCE_GLOB = '**/*.{js,jsx,mjs,cjs,ts,tsx,py,java,cs,cpp,cc,h,hpp,c,go,rs,php,rb,kt,swift,scala,dart,lua}';
 const IGNORE = '**/{node_modules,out,dist,build,.git,.docmanager}/**';
 const DOCUMENTABLE_KINDS = new Set([
     vscode.SymbolKind.Function,
     vscode.SymbolKind.Method,
     vscode.SymbolKind.Constructor,
-    vscode.SymbolKind.Variable,
+    vscode.SymbolKind.Class,
 ]);
 /** A scan walks every source file, so it is slow enough that a double-click
  *  would otherwise start a second run. Two concurrent scans do a

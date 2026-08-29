@@ -52,6 +52,7 @@ const funcManagerStore_1 = require("../backend/services/funcManagerStore");
 const notificationsBellProvider_1 = require("./providers/notificationsBellProvider");
 const apiKey_1 = require("./services/apiKey");
 const scanRepo_1 = require("./commands/scanRepo");
+const showDocPanel_1 = require("./commands/showDocPanel");
 function activate(context) {
     (0, apiKey_1.initSecrets)(context); // must run before any generation — from teammate's setup
     const hoverProvider = new hoverProvider_1.HoverProvider();
@@ -64,9 +65,7 @@ function activate(context) {
     const testConnectRepoCommand = vscode.commands.registerCommand('yourExtension.testConnectRepo', () => {
         connectRepoProvider_1.ConnectRepoProvider.show(context);
     });
-    const showDocPanelCommand = vscode.commands.registerCommand('docManager.showDocPanel', (meta) => {
-        DocPanelProvider_1.DocPanelProvider.show(context.extensionUri, meta);
-    });
+    const showDocPanelCommand = vscode.commands.registerCommand('docManager.showDocPanel', (meta) => (0, showDocPanel_1.showDocPanel)(context, meta));
     const openFullDocsCommand = vscode.commands.registerCommand('docManager.openFullDocs', (meta) => {
         DocPanelProvider_1.DocPanelProvider.show(context.extensionUri, meta);
     });

@@ -48,16 +48,12 @@ const docClient_1 = require("../services/docClient");
 const DocPanelProvider_1 = require("./DocPanelProvider");
 class RecordPanelProvider {
     static show(extensionUri, meta) {
-        // Only one recorder at a time: two open panels would both hold the
-        // microphone, and the second getUserMedia call typically fails.
         RecordPanelProvider.current?.panel.dispose();
         const panel = vscode.window.createWebviewPanel(RecordPanelProvider.viewType, `Record: ${meta.symbolName}`, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false }, {
             enableScripts: true,
-            // Deliberately false: a retained panel keeps the microphone stream
-            // alive in the background, leaving the OS recording indicator lit.
             retainContextWhenHidden: false,
             localResourceRoots: [
-                vscode.Uri.joinPath(extensionUri, 'out', 'frontend', 'webviews', 'recordPanel'),
+                vscode.Uri.joinPath(extensionUri, 'dist', 'webview', 'recordPanel'),
             ],
         });
         RecordPanelProvider.current = new RecordPanelProvider(panel, extensionUri, meta);
@@ -122,7 +118,7 @@ class RecordPanelProvider {
         }
     }
     getHtml(webview) {
-        const base = vscode.Uri.joinPath(this.extensionUri, 'out', 'frontend', 'webviews', 'recordPanel');
+        const base = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'recordPanel');
         const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'recordPanel.css'));
         const jsUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'recordPanel.js'));
         const nonce = getNonce();

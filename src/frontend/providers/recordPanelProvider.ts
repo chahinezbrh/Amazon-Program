@@ -28,8 +28,6 @@ export class RecordPanelProvider {
   private disposables: vscode.Disposable[] = [];
 
   public static show(extensionUri: vscode.Uri, meta: SymbolMeta) {
-    // Only one recorder at a time: two open panels would both hold the
-    // microphone, and the second getUserMedia call typically fails.
     RecordPanelProvider.current?.panel.dispose();
 
     const panel = vscode.window.createWebviewPanel(
@@ -38,17 +36,9 @@ export class RecordPanelProvider {
       { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
       {
         enableScripts: true,
-        // Deliberately false: a retained panel keeps the microphone stream
-        // alive in the background, leaving the OS recording indicator lit.
         retainContextWhenHidden: false,
         localResourceRoots: [
-          vscode.Uri.joinPath(
-            extensionUri,
-            'out',
-            'frontend',
-            'webviews',
-            'recordPanel'
-          ),
+          vscode.Uri.joinPath(extensionUri, 'dist', 'webview', 'recordPanel'),
         ],
       }
     );
@@ -145,8 +135,7 @@ export class RecordPanelProvider {
       );
     } catch (err) {
       vscode.window.showErrorMessage(
-        `Doc Manager: could not save recording — ${
-          err instanceof Error ? err.message : 'unknown error'
+        `Doc Manager: could not save recording — ${err instanceof Error ? err.message : 'unknown error'
         }`
       );
     }
@@ -155,9 +144,8 @@ export class RecordPanelProvider {
   private getHtml(webview: vscode.Webview): string {
     const base = vscode.Uri.joinPath(
       this.extensionUri,
-      'out',
-      'frontend',
-      'webviews',
+      'dist',
+      'webview',
       'recordPanel'
     );
     const cssUri = webview.asWebviewUri(
@@ -166,6 +154,7 @@ export class RecordPanelProvider {
     const jsUri = webview.asWebviewUri(
       vscode.Uri.joinPath(base, 'recordPanel.js')
     );
+
     const nonce = getNonce();
 
     // media-src blob: is required for the local playback preview — without it

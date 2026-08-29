@@ -5,6 +5,8 @@ import { parseTextForLanguage } from './parseText';
 import { currentHead, pullLatest, changedFilesBetween, fileContentAtRef } from './gitSync';
 import { CodeNotification, DiffLine } from '../../shared/types';
 import { FuncManagerStore } from './funcManagerStore';
+import { classifyChange } from './changeClassifier';
+
 
 function buildDiffLines(before: string, after: string): DiffLine[] {
   const changes = diffLines(before, after);
@@ -95,6 +97,17 @@ export async function handlePushWebhook(
         }
       }
 
+      let changeType: string;
+      if (isNew) {
+        changeType = 'Function added';
+      } else if (language && beforeBody && afterBody) {
+        changeType = classifyChange(beforeBody, afterBody, language) === 'syntax'
+          ? 'Syntax changed'
+          : 'Logic changed';
+      } else {
+        changeType = 'Logic changed'; // couldn't resolve a body to compare — safer default
+      }
+
       notifications.push({
         id: `notif-${newSha}-${relFile}-${fn.name}`,
         type: 'modification',
@@ -108,9 +121,12 @@ export async function handlePushWebhook(
         timestamp: new Date().toISOString(),
         affectedAuthor: commitAuthor,
         status: 'critical',
-        changeType: isNew ? 'Function added' : 'Logic changed',
+        changeType, // now real, not hardcoded
         diffLines: buildDiffLines(beforeBody, afterBody),
       });
+
+
+
     }
   }
 

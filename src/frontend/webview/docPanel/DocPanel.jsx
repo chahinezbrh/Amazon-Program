@@ -13,6 +13,8 @@ export default function DocPanel() {
   const [entries, setEntries] = useState(undefined);
   const [error, setError] = useState(null);
   const [activeEntryId, setActiveEntryId] = useState(null);
+  const [editingEntryId, setEditingEntryId] = useState(null);
+  const [aiState, setAiState] = useState(null); // null | 'pending' | { draft } | { error }
 
   useEffect(() => {
     function onMessage(event) {
@@ -22,6 +24,7 @@ export default function DocPanel() {
           setMeta(message.payload);
           setEntries(undefined);
           setError(null);
+          setAiState(null);
           break;
         case 'entries':
           setEntries(message.payload);
@@ -30,6 +33,19 @@ export default function DocPanel() {
         case 'error':
           setEntries(null);
           setError(message.message);
+          break;
+        case 'openEditor':
+          setActiveEntryId(message.entryId);
+          setEditingEntryId(message.entryId);
+          break;
+        case 'aiPending':
+          setAiState('pending');
+          break;
+        case 'aiDraft':
+          setAiState({ draft: message.content });
+          break;
+        case 'aiError':
+          setAiState({ error: message.message });
           break;
         default:
           break; // 'audioUrl' is handled by VoiceEntry itself
@@ -58,10 +74,27 @@ export default function DocPanel() {
       )}
 
       <div id="content">
+        {aiState && (
+          <AiDraftPanel
+            state={aiState}
+            onDiscard={() => {
+              setAiState(null);
+              vscode.postMessage({ type: 'discardAi' });
+            }}
+          />
+        )}
         {entries === undefined && <Skeleton />}
         {entries === null && <ErrorState message={error} />}
-        {Array.isArray(entries) && entries.length === 0 && <EmptyState symbolName={meta.symbolName} />}
-        {activeEntry && <EntryDetail entry={activeEntry} />}
+        {Array.isArray(entries) && entries.length === 0 && !aiState && (
+          <EmptyState symbolName={meta.symbolName} />
+        )}
+        {activeEntry && !aiState && (
+          <EntryDetail
+            entry={activeEntry}
+            editingEntryId={editingEntryId}
+            onEditingHandled={() => setEditingEntryId(null)}
+          />
+        )}
       </div>
 
       <Footer />
@@ -100,7 +133,45 @@ function TabBar({ entries, activeEntryId, onSelect }) {
   );
 }
 
-function EntryDetail({ entry }) {
+function AiDraftPanel({ state, onDiscard }) {
+  if (state === 'pending') {
+    return (
+      <div className="ai-draft">
+        <Skeleton />
+        <p className="muted">Generating…</p>
+      </div>
+    );
+  }
+  if (state.error) {
+    return (
+      <div className="ai-draft">
+        <p>Couldn't generate documentation.</p>
+        <p className="muted">{state.error}</p>
+        <button className="ghost-btn small" onClick={onDiscard}>
+          Dismiss
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="ai-draft">
+      <div className="text-content">{state.draft}</div>
+      <div className="editor-actions">
+        <button
+          className="ghost-btn small primary"
+          onClick={() => vscode.postMessage({ type: 'saveAi', content: state.draft })}
+        >
+          Save
+        </button>
+        <button className="ghost-btn small" onClick={onDiscard}>
+          Discard
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EntryDetail({ entry, editingEntryId, onEditingHandled }) {
   return (
     <>
       <div className="entry-meta">
@@ -108,20 +179,31 @@ function EntryDetail({ entry }) {
         <span className="dot">·</span>
         <span>{formatDate(entry.createdAt)}</span>
       </div>
-      {entry.type === 'voice' ? <VoiceEntry entry={entry} /> : <TextEntry entry={entry} />}
+      {entry.type === 'voice' ? (
+        <VoiceEntry entry={entry} />
+      ) : (
+        <TextEntry
+          entry={entry}
+          startInEdit={entry.id === editingEntryId}
+          onEditingHandled={onEditingHandled}
+        />
+      )}
     </>
   );
 }
 
-function TextEntry({ entry }) {
+function TextEntry({ entry, startInEdit, onEditingHandled }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(entry.content || '');
 
-  // If the user switches tabs (different entry) or fresh content arrives, drop any in-progress edit.
+  // If the user switches tabs (different entry), fresh content arrives, or
+  // the provider asked us to open straight into edit mode (a new draft),
+  // sync local state accordingly.
   useEffect(() => {
     setDraft(entry.content || '');
-    setIsEditing(false);
-  }, [entry.id, entry.content]);
+    setIsEditing(Boolean(startInEdit));
+    if (startInEdit) onEditingHandled?.();
+  }, [entry.id, entry.content, startInEdit]);
 
   function handleSave() {
     vscode.postMessage({ type: 'saveWritten', entryId: entry.id, content: draft });

@@ -16,6 +16,7 @@ import { FuncManagerStore } from '../backend/services/funcManagerStore';
 import { NotificationsBellProvider } from './providers/notificationsBellProvider';
 import { initSecrets, promptForApiKey, clearApiKey } from './services/apiKey';
 import { scanRepo } from './commands/scanRepo';
+import { showDocPanel } from './commands/showDocPanel';
 
 export function activate(context: vscode.ExtensionContext) {
   initSecrets(context); // must run before any generation — from teammate's setup
@@ -44,12 +45,10 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  const showDocPanelCommand = vscode.commands.registerCommand(
-    'docManager.showDocPanel',
-    (meta: SymbolMeta) => {
-      DocPanelProvider.show(context.extensionUri, meta);
-    }
-  );
+ const showDocPanelCommand = vscode.commands.registerCommand(
+  'docManager.showDocPanel',
+  (meta: SymbolMeta) => showDocPanel(context, meta)
+);
 
   const openFullDocsCommand = vscode.commands.registerCommand(
     'docManager.openFullDocs',

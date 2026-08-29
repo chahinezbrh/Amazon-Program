@@ -63,8 +63,8 @@ class DocPanelProvider {
             enableScripts: true,
             retainContextWhenHidden: true,
             localResourceRoots: [
-                // The bundled webview, emitted by build:webview.
-                vscode.Uri.joinPath(extensionUri, 'out', 'frontend', 'webviews', 'docPanel'),
+                // Matches build-webview.js's actual output location for this panel.
+                vscode.Uri.joinPath(extensionUri, 'dist', 'webview', 'docPanel'),
                 // Voice recordings live in the USER'S repo (.docmanager/audio), not in
                 // the extension folder. A webview refuses to load any file outside
                 // these roots, so without this the audio silently never plays.
@@ -189,6 +189,28 @@ class DocPanelProvider {
                 });
                 break;
             }
+            case 'editWritten': {
+                const draft = {
+                    id: '__draft__',
+                    type: 'written',
+                    content: '',
+                    author: (0, docClient_1.currentAuthor)(),
+                    createdAt: new Date().toISOString(),
+                    symbolName: this.currentMeta.symbolName,
+                    filePath: this.currentMeta.filePath,
+                    startLine: this.currentMeta.startLine,
+                    endLine: this.currentMeta.endLine,
+                    isStale: false,
+                };
+                const withDraft = [...(this.currentEntries ?? []), draft];
+                this.currentEntries = withDraft;
+                this.panel.webview.postMessage({ type: 'entries', payload: withDraft });
+                this.panel.webview.postMessage({ type: 'openEditor', entryId: draft.id });
+                break;
+            }
+            case 'generateWithAI':
+                await this.generateAi();
+                break;
         }
     }
     /**
@@ -234,7 +256,7 @@ class DocPanelProvider {
         }
     }
     getHtml(webview) {
-        const base = vscode.Uri.joinPath(this.extensionUri, 'out', 'frontend', 'webviews', 'docPanel');
+        const base = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'docPanel');
         const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'docPanel.css'));
         const jsUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'docPanel.js'));
         const nonce = getNonce();

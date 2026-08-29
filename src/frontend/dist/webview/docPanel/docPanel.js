@@ -24473,6 +24473,8 @@
     const [entries, setEntries] = (0, import_react.useState)(void 0);
     const [error, setError] = (0, import_react.useState)(null);
     const [activeEntryId, setActiveEntryId] = (0, import_react.useState)(null);
+    const [editingEntryId, setEditingEntryId] = (0, import_react.useState)(null);
+    const [aiState, setAiState] = (0, import_react.useState)(null);
     (0, import_react.useEffect)(() => {
       function onMessage(event) {
         const message = event.data;
@@ -24481,6 +24483,7 @@
             setMeta(message.payload);
             setEntries(void 0);
             setError(null);
+            setAiState(null);
             break;
           case "entries":
             setEntries(message.payload);
@@ -24489,6 +24492,19 @@
           case "error":
             setEntries(null);
             setError(message.message);
+            break;
+          case "openEditor":
+            setActiveEntryId(message.entryId);
+            setEditingEntryId(message.entryId);
+            break;
+          case "aiPending":
+            setAiState("pending");
+            break;
+          case "aiDraft":
+            setAiState({ draft: message.content });
+            break;
+          case "aiError":
+            setAiState({ error: message.message });
             break;
           default:
             break;
@@ -24506,10 +24522,27 @@
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Header, { symbolName: meta.symbolName }),
       Array.isArray(entries) && entries.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TabBar, { entries, activeEntryId, onSelect: setActiveEntryId }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "content", children: [
+        aiState && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          AiDraftPanel,
+          {
+            state: aiState,
+            onDiscard: () => {
+              setAiState(null);
+              vscode.postMessage({ type: "discardAi" });
+            }
+          }
+        ),
         entries === void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Skeleton, {}),
         entries === null && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ErrorState, { message: error }),
-        Array.isArray(entries) && entries.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(EmptyState, { symbolName: meta.symbolName }),
-        activeEntry && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(EntryDetail, { entry: activeEntry })
+        Array.isArray(entries) && entries.length === 0 && !aiState && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(EmptyState, { symbolName: meta.symbolName }),
+        activeEntry && !aiState && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          EntryDetail,
+          {
+            entry: activeEntry,
+            editingEntryId,
+            onEditingHandled: () => setEditingEntryId(null)
+          }
+        )
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Footer, {})
     ] });
@@ -24539,23 +24572,61 @@
       entry.id
     )) });
   }
-  function EntryDetail({ entry }) {
+  function AiDraftPanel({ state, onDiscard }) {
+    if (state === "pending") {
+      return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ai-draft", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Skeleton, {}),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "muted", children: "Generating\u2026" })
+      ] });
+    }
+    if (state.error) {
+      return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ai-draft", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Couldn't generate documentation." }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "muted", children: state.error }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "ghost-btn small", onClick: onDiscard, children: "Dismiss" })
+      ] });
+    }
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ai-draft", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-content", children: state.draft }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "editor-actions", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "button",
+          {
+            className: "ghost-btn small primary",
+            onClick: () => vscode.postMessage({ type: "saveAi", content: state.draft }),
+            children: "Save"
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "ghost-btn small", onClick: onDiscard, children: "Discard" })
+      ] })
+    ] });
+  }
+  function EntryDetail({ entry, editingEntryId, onEditingHandled }) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "entry-meta", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: entry.author }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dot", children: "\xB7" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: formatDate(entry.createdAt) })
       ] }),
-      entry.type === "voice" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(VoiceEntry, { entry }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TextEntry, { entry })
+      entry.type === "voice" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(VoiceEntry, { entry }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        TextEntry,
+        {
+          entry,
+          startInEdit: entry.id === editingEntryId,
+          onEditingHandled
+        }
+      )
     ] });
   }
-  function TextEntry({ entry }) {
+  function TextEntry({ entry, startInEdit, onEditingHandled }) {
     const [isEditing, setIsEditing] = (0, import_react.useState)(false);
     const [draft, setDraft] = (0, import_react.useState)(entry.content || "");
     (0, import_react.useEffect)(() => {
       setDraft(entry.content || "");
-      setIsEditing(false);
-    }, [entry.id, entry.content]);
+      setIsEditing(Boolean(startInEdit));
+      if (startInEdit)
+        onEditingHandled?.();
+    }, [entry.id, entry.content, startInEdit]);
     function handleSave() {
       vscode.postMessage({ type: "saveWritten", entryId: entry.id, content: draft });
       setIsEditing(false);

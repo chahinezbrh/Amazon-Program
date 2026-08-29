@@ -18,14 +18,14 @@ import type { StoredFunction, StoredSourceDoc } from '../../shared/docFile';
 import { DocPanelProvider } from '../providers/DocPanelProvider';
 import { getDocsForSymbol } from '../services/docClient';
 
-const SOURCE_GLOB = '**/*.{js,jsx,ts,tsx}';
+const SOURCE_GLOB = '**/*.{js,jsx,mjs,cjs,ts,tsx,py,java,cs,cpp,cc,h,hpp,c,go,rs,php,rb,kt,swift,scala,dart,lua}';
 const IGNORE = '**/{node_modules,out,dist,build,.git,.docmanager}/**';
 
 const DOCUMENTABLE_KINDS = new Set<vscode.SymbolKind>([
   vscode.SymbolKind.Function,
   vscode.SymbolKind.Method,
   vscode.SymbolKind.Constructor,
-  vscode.SymbolKind.Variable,
+  vscode.SymbolKind.Class,
 ]);
 
 /** A scan walks every source file, so it is slow enough that a double-click
