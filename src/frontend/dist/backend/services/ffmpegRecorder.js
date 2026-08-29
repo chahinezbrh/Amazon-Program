@@ -52,6 +52,7 @@ exports.startRecording = startRecording;
 const child_process_1 = require("child_process");
 const util_1 = require("util");
 const os = __importStar(require("os"));
+const vscode = __importStar(require("vscode"));
 const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
 /** Capture backend per platform. ffmpeg needs a different one on each. */
 function captureFormat() {
@@ -105,17 +106,24 @@ async function listAudioDevices(binary = 'ffmpeg') {
         : parseAvfoundationDevices(output);
 }
 /** dshow prints:  [dshow @ ...] "Microphone (Realtek Audio)" (audio) */
+/** dshow prints one primary line per device — `"name" (audio)` or `(video)` —
+ *  optionally followed by an indented `Alternative name "..."` line for the
+ *  same device. Only primary lines carry the (audio)/(video) marker, so that
+ *  marker must be read directly off each name line, never inferred from a
+ *  neighboring line — otherwise a video device's alternative-name line can
+ *  be mistaken for an audio device's, as it was in practice. */
 function parseDshowDevices(output) {
     const devices = [];
     const lines = output.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i] ?? '';
-        const name = /"([^"]+)"/.exec(line)?.[1];
-        if (!name)
+    for (const line of lines) {
+        // Only primary device lines look like: "Name" (audio) / "Name" (video)
+        // Alternative-name lines never carry (audio)/(video), so this pattern
+        // alone is enough to skip them.
+        const match = /"([^"]+)"\s+\((audio|video)\)/.exec(line);
+        if (!match)
             continue;
-        // The "(audio)" marker is sometimes on the same line, sometimes the next.
-        const marker = line + (lines[i + 1] ?? '');
-        if (!marker.includes('(audio)'))
+        const [, name, kind] = match;
+        if (!name || kind !== 'audio')
             continue;
         devices.push({ id: `audio=${name}`, label: name });
     }
@@ -161,6 +169,10 @@ function startRecording(deviceId, outputPath, options = {}) {
         '-c:a', 'pcm_s16le',
         '-y', outputPath,
     ]);
+    vscode.window.showInformationMessage(`[DEBUG] ffmpeg spawned. output=${outputPath} device=${deviceId}`);
+    proc.on('exit', (code, signal) => {
+        vscode.window.showWarningMessage(`[DEBUG] ffmpeg EXITED EARLY. code=${code} signal=${signal}`);
+    });
     let stderr = '';
     proc.stderr?.on('data', (chunk) => {
         stderr += String(chunk);
@@ -172,6 +184,7 @@ function startRecording(deviceId, outputPath, options = {}) {
                     return resolve();
                 let askedToStop = false;
                 proc.once('close', (code, signal) => {
+                    vscode.window.showInformationMessage(`[DEBUG] ffmpeg closed. code=${code} signal=${signal} stderr=${stderr || '(empty)'}`);
                     if (code === 0 || code === 255 || (askedToStop && code === null)) {
                         resolve();
                     }
@@ -180,12 +193,11 @@ function startRecording(deviceId, outputPath, options = {}) {
                     }
                 });
                 askedToStop = true;
-                // 'q' must arrive as its own line — a bare byte can sit unread in the
-                // pipe buffer. Windows in particular needs this to register the command.
+                // 'q' must arrive as its own line — a bare byte can sit unread in
+                // the pipe buffer. Windows in particular needs this to register.
                 if (proc.stdin && !proc.stdin.destroyed) {
                     proc.stdin.write('q\n', (err) => {
                         if (err) {
-                            // stdin write failed outright — fall back immediately.
                             proc.kill();
                         }
                     });
@@ -194,8 +206,8 @@ function startRecording(deviceId, outputPath, options = {}) {
                     proc.kill();
                 }
                 // Give ffmpeg real time to finalize the container before escalating.
-                // Signals are unreliable on Windows (Node emulates them, often as a hard
-                // kill), so this timeout is the actual safety net there, not SIGINT.
+                // Signals are unreliable on Windows (Node emulates them, often as a
+                // hard kill), so this timeout is the real safety net there, not SIGINT.
                 setTimeout(() => {
                     if (proc.exitCode === null) {
                         proc.kill();
@@ -204,9 +216,7 @@ function startRecording(deviceId, outputPath, options = {}) {
             });
         },
         cancel() {
-            if (proc.exitCode === null) {
-                proc.kill();
-            }
+            proc.kill();
         },
     };
 }

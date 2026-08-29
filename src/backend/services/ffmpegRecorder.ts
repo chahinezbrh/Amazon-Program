@@ -15,6 +15,7 @@
 import { spawn, execFile, ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import * as os from 'os';
+import * as vscode from 'vscode';
 
 const execFileAsync = promisify(execFile);
 
@@ -83,18 +84,25 @@ export async function listAudioDevices(binary = 'ffmpeg'): Promise<AudioDevice[]
 }
 
 /** dshow prints:  [dshow @ ...] "Microphone (Realtek Audio)" (audio) */
+/** dshow prints one primary line per device — `"name" (audio)` or `(video)` —
+ *  optionally followed by an indented `Alternative name "..."` line for the
+ *  same device. Only primary lines carry the (audio)/(video) marker, so that
+ *  marker must be read directly off each name line, never inferred from a
+ *  neighboring line — otherwise a video device's alternative-name line can
+ *  be mistaken for an audio device's, as it was in practice. */
 function parseDshowDevices(output: string): AudioDevice[] {
   const devices: AudioDevice[] = [];
   const lines = output.split('\n');
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] ?? '';
-    const name = /"([^"]+)"/.exec(line)?.[1];
-    if (!name) continue;
+  for (const line of lines) {
+    // Only primary device lines look like: "Name" (audio) / "Name" (video)
+    // Alternative-name lines never carry (audio)/(video), so this pattern
+    // alone is enough to skip them.
+    const match = /"([^"]+)"\s+\((audio|video)\)/.exec(line);
+    if (!match) continue;
 
-    // The "(audio)" marker is sometimes on the same line, sometimes the next.
-    const marker = line + (lines[i + 1] ?? '');
-    if (!marker.includes('(audio)')) continue;
+    const [, name, kind] = match;
+    if (!name || kind !== 'audio') continue;
 
     devices.push({ id: `audio=${name}`, label: name });
   }
@@ -150,14 +158,20 @@ export function startRecording(
   const { binary = 'ffmpeg', maxSeconds = 600 } = options;
 
   const proc: ChildProcess = spawn(binary, [
-  '-hide_banner',
-  '-loglevel', 'error',
-  '-f', captureFormat(),
-  '-i', deviceId,
-  '-t', String(maxSeconds),
-  '-c:a', 'pcm_s16le',        
-  '-y', outputPath,
-]);
+    '-hide_banner',
+    '-loglevel', 'error',
+    '-f', captureFormat(),
+    '-i', deviceId,
+    '-t', String(maxSeconds),
+    '-c:a', 'pcm_s16le',
+    '-y', outputPath,
+  ]);
+
+  vscode.window.showInformationMessage(`[DEBUG] ffmpeg spawned. output=${outputPath} device=${deviceId}`);
+
+  proc.on('exit', (code, signal) => {
+  vscode.window.showWarningMessage(`[DEBUG] ffmpeg EXITED EARLY. code=${code} signal=${signal}`);
+});
 
   let stderr = '';
   proc.stderr?.on('data', (chunk) => {
@@ -165,15 +179,14 @@ export function startRecording(
   });
 
   return {
-        stop() {
-          return new Promise<void>((resolve, reject) => {
+    stop() {
+      return new Promise<void>((resolve, reject) => {
         if (proc.exitCode !== null) return resolve();
 
         let askedToStop = false;
 
         proc.once('close', (code, signal) => {
-          // A signal we sent ourselves is a stop, not a failure. ffmpeg exits
-          // 255 when interrupted with 'q', and reports null when killed.
+          vscode.window.showInformationMessage(`[DEBUG] ffmpeg closed. code=${code} signal=${signal} stderr=${stderr || '(empty)'}`);
           if (code === 0 || code === 255 || (askedToStop && code === null)) {
             resolve();
           } else {
@@ -181,23 +194,28 @@ export function startRecording(
           }
         });
 
-        // 'q' is the only way ffmpeg finalises the container cleanly. SIGINT is
-        // the fallback; SIGKILL would leave the file's header unwritten.
-        proc.stdin?.write('q');
+        askedToStop = true;
 
+        // 'q' must arrive as its own line — a bare byte can sit unread in
+        // the pipe buffer. Windows in particular needs this to register.
+        if (proc.stdin && !proc.stdin.destroyed) {
+          proc.stdin.write('q\n', (err) => {
+            if (err) {
+              proc.kill();
+            }
+          });
+        } else {
+          proc.kill();
+        }
+
+        // Give ffmpeg real time to finalize the container before escalating.
+        // Signals are unreliable on Windows (Node emulates them, often as a
+        // hard kill), so this timeout is the real safety net there, not SIGINT.
         setTimeout(() => {
           if (proc.exitCode === null) {
-            askedToStop = true;
-            proc.kill('SIGINT');
-          }
-        }, 1500);
-
-        setTimeout(() => {
-          if (proc.exitCode === null) {
-            askedToStop = true;
             proc.kill();
           }
-        }, 5000);
+        }, 4000);
       });
     },
 

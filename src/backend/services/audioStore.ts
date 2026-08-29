@@ -1,7 +1,7 @@
 // src/backend/services/audioStore.ts
 //
 // Writes recorded audio into the repo alongside docs.json.
-//
+
 // No vscode import: takes a repo root and raw bytes, same as docFileStore.
 
 import { promises as fs } from 'fs';
