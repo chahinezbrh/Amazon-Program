@@ -10,7 +10,7 @@ const DOCUMENTABLE_KINDS = new Set<vscode.SymbolKind>([
   vscode.SymbolKind.Function,
   vscode.SymbolKind.Method,
   vscode.SymbolKind.Constructor,
-  vscode.SymbolKind.Variable,
+  vscode.SymbolKind.Class,
 ]);
 
 export class HoverProvider implements vscode.HoverProvider {
@@ -88,13 +88,11 @@ function buildMarkdown(meta: SymbolMeta, entries: DocEntry[]): vscode.MarkdownSt
 
   const args = encodeURIComponent(JSON.stringify(meta));
 
-  if (entries.length === 0) {
+    if (entries.length === 0) {
+    // One way in. The panel's footer already offers Written / AI / Voice, so
+    // repeating them here is three routes to the same three buttons.
     md.appendMarkdown(`**${meta.symbolName}** — no documentation yet\n\n`);
-    md.appendMarkdown(
-      `[Write docs](command:docManager.editDoc?${args}) · ` +
-      `[Generate with AI](command:docManager.generateDoc?${args}) · ` +
-      `[Record memory](command:docManager.recordDoc?${args})`
-    );
+    md.appendMarkdown(`[Add documentation](command:docManager.showDocPanel?${args})`);
     return md;
   }
 
@@ -113,7 +111,7 @@ function buildMarkdown(meta: SymbolMeta, entries: DocEntry[]): vscode.MarkdownSt
   if (stale > 0) {
     md.appendMarkdown(
       `$(warning) ${stale} ${stale === 1 ? 'entry has' : 'entries have'} ` +
-      `gone stale since the code changed\n\n`
+        `gone stale since the code changed\n\n`
     );
     md.supportThemeIcons = true;
   }

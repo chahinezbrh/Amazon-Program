@@ -7,6 +7,7 @@ const fileWalker_1 = require("../db/fileWalker");
 const parseText_1 = require("./parseText");
 const gitSync_1 = require("./gitSync");
 const funcManagerStore_1 = require("./funcManagerStore");
+const changeClassifier_1 = require("./changeClassifier");
 function buildDiffLines(before, after) {
     const changes = (0, diff_1.diffLines)(before, after);
     const result = [];
@@ -81,6 +82,18 @@ async function handlePushWebhook(repoRoot, commitAuthor, commitMessage) {
                     afterBody = parsed.find((p) => p.name === fn.name)?.body ?? '';
                 }
             }
+            let changeType;
+            if (isNew) {
+                changeType = 'Function added';
+            }
+            else if (language && beforeBody && afterBody) {
+                changeType = (0, changeClassifier_1.classifyChange)(beforeBody, afterBody, language) === 'syntax'
+                    ? 'Syntax changed'
+                    : 'Logic changed';
+            }
+            else {
+                changeType = 'Logic changed'; // couldn't resolve a body to compare — safer default
+            }
             notifications.push({
                 id: `notif-${newSha}-${relFile}-${fn.name}`,
                 type: 'modification',
@@ -94,7 +107,7 @@ async function handlePushWebhook(repoRoot, commitAuthor, commitMessage) {
                 timestamp: new Date().toISOString(),
                 affectedAuthor: commitAuthor,
                 status: 'critical',
-                changeType: isNew ? 'Function added' : 'Logic changed',
+                changeType, // now real, not hardcoded
                 diffLines: buildDiffLines(beforeBody, afterBody),
             });
         }
