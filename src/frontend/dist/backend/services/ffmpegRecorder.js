@@ -172,8 +172,6 @@ function startRecording(deviceId, outputPath, options = {}) {
                     return resolve();
                 let askedToStop = false;
                 proc.once('close', (code, signal) => {
-                    // A signal we sent ourselves is a stop, not a failure. ffmpeg exits
-                    // 255 when interrupted with 'q', and reports null when killed.
                     if (code === 0 || code === 255 || (askedToStop && code === null)) {
                         resolve();
                     }
@@ -181,25 +179,34 @@ function startRecording(deviceId, outputPath, options = {}) {
                         reject(new Error(stderr.trim() || `ffmpeg exited with ${code ?? signal}`));
                     }
                 });
-                // 'q' is the only way ffmpeg finalises the container cleanly. SIGINT is
-                // the fallback; SIGKILL would leave the file's header unwritten.
-                proc.stdin?.write('q');
+                askedToStop = true;
+                // 'q' must arrive as its own line — a bare byte can sit unread in the
+                // pipe buffer. Windows in particular needs this to register the command.
+                if (proc.stdin && !proc.stdin.destroyed) {
+                    proc.stdin.write('q\n', (err) => {
+                        if (err) {
+                            // stdin write failed outright — fall back immediately.
+                            proc.kill();
+                        }
+                    });
+                }
+                else {
+                    proc.kill();
+                }
+                // Give ffmpeg real time to finalize the container before escalating.
+                // Signals are unreliable on Windows (Node emulates them, often as a hard
+                // kill), so this timeout is the actual safety net there, not SIGINT.
                 setTimeout(() => {
                     if (proc.exitCode === null) {
-                        askedToStop = true;
-                        proc.kill('SIGINT');
-                    }
-                }, 1500);
-                setTimeout(() => {
-                    if (proc.exitCode === null) {
-                        askedToStop = true;
                         proc.kill();
                     }
-                }, 5000);
+                }, 4000);
             });
         },
         cancel() {
-            proc.kill();
+            if (proc.exitCode === null) {
+                proc.kill();
+            }
         },
     };
 }
