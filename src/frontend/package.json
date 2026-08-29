@@ -69,9 +69,36 @@
       },
       {
         "command": "docManager.scanRepo",
-        "title": "CMS Memory: Scan Repository"
+        "title": "CMS Memory: Scan Repository ",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "docManager.showDocPanel",
+        "title": "CMS Memory: Show Doc Panel"
+      },
+      {
+        "command": "docManager.playVoice",
+        "title": "CMS Memory: Play Voice Memo"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "docManager.showDocPanel",
+          "when": "false"
+        },
+        {
+          "command": "docManager.playVoice",
+          "when": "false"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "docManager.scanRepo",
+          "group": "navigation"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {
