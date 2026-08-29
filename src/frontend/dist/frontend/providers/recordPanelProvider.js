@@ -1,12 +1,11 @@
 "use strict";
 // src/frontend/providers/RecordPanelProvider.ts
 //
-// Hosts the recording webview.
-//
-// Recording MUST happen in a webview: MediaRecorder and getUserMedia are
-// browser APIs, and the extension host is plain Node with no microphone
-// access. The captured audio crosses back as base64 over postMessage, which is
-// the only route across the webview boundary without a local server.
+// Records via ffmpeg on the extension host (see backend/services/ffmpegRecorder.ts).
+// No webview: getUserMedia is not reliably granted inside VS Code's webview
+// sandbox, so capture happens entirely in Node via ffmpeg. Recording starts
+// immediately on show(); a native notification with a "Stop & Save" action
+// is the only UI surface, no custom panel.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -43,71 +42,108 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RecordPanelProvider = void 0;
 const vscode = __importStar(require("vscode"));
+const path = __importStar(require("path"));
+const fs_1 = require("fs");
+const ffmpegRecorder_1 = require("../../backend/services/ffmpegRecorder");
 const audioStore_1 = require("../../backend/services/audioStore");
 const docClient_1 = require("../services/docClient");
 const DocPanelProvider_1 = require("./DocPanelProvider");
 class RecordPanelProvider {
-    static show(extensionUri, meta) {
-        RecordPanelProvider.current?.panel.dispose();
-        const panel = vscode.window.createWebviewPanel(RecordPanelProvider.viewType, `Record: ${meta.symbolName}`, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false }, {
-            enableScripts: true,
-            retainContextWhenHidden: false,
-            localResourceRoots: [
-                vscode.Uri.joinPath(extensionUri, 'dist', 'webview', 'recordPanel'),
-            ],
-        });
-        RecordPanelProvider.current = new RecordPanelProvider(panel, extensionUri, meta);
-    }
-    constructor(panel, extensionUri, meta) {
-        this.disposables = [];
-        this.panel = panel;
-        this.extensionUri = extensionUri;
-        this.meta = meta;
-        this.panel.webview.html = this.getHtml(panel.webview);
-        this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-        this.panel.webview.onDidReceiveMessage((message) => this.handleMessage(message), null, this.disposables);
-    }
-    async handleMessage(message) {
-        switch (message.type) {
-            case 'ready':
-                this.panel.webview.postMessage({ type: 'meta', payload: this.meta });
-                break;
-            case 'cancel':
-                this.panel.dispose();
-                break;
-            case 'recorded':
-                await this.persist(message);
-                break;
+    static async show(_extensionUri, meta) {
+        if (RecordPanelProvider.current) {
+            vscode.window.showWarningMessage('Doc Manager: a recording is already in progress.');
+            return;
         }
-    }
-    async persist(message) {
-        const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(this.meta.filePath));
+        const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(meta.filePath));
         if (!folder) {
             vscode.window.showErrorMessage('Doc Manager: this file is outside the workspace.');
             return;
         }
-        // Optional note. Whisper or VS Code Speech could fill this automatically
-        // later — the transcript field is already in the storage format.
+        const version = await (0, ffmpegRecorder_1.detectFfmpeg)();
+        if (!version) {
+            vscode.window.showErrorMessage('Doc Manager: ffmpeg was not found on PATH. Install ffmpeg to record voice memos.');
+            return;
+        }
+        const devices = await (0, ffmpegRecorder_1.listAudioDevices)();
+        if (devices.length === 0) {
+            vscode.window.showErrorMessage('Doc Manager: no microphone was detected.');
+            return;
+        }
+        const provider = new RecordPanelProvider(meta, folder.uri.fsPath);
+        RecordPanelProvider.current = provider;
+        await provider.start(devices[0].id);
+    }
+    constructor(meta, repoRoot) {
+        this.startedAt = 0;
+        this.meta = meta;
+        const id = `${Date.now().toString(36)}${Math.random()
+            .toString(36)
+            .slice(2, 8)}`;
+        // pcm_s16le in ffmpegRecorder needs a .wav container, not .webm.
+        this.relativePath = (0, audioStore_1.audioRelativePath)(id, 'wav');
+        this.absolutePath = (0, audioStore_1.audioAbsolutePath)(repoRoot, this.relativePath);
+    }
+    async start(deviceId) {
+        await fs_1.promises.mkdir(path.dirname(this.absolutePath), { recursive: true });
+        try {
+            this.recording = (0, ffmpegRecorder_1.startRecording)(deviceId, this.absolutePath);
+        }
+        catch (err) {
+            vscode.window.showErrorMessage(`Doc Manager: could not start recording — ${err instanceof Error ? err.message : 'unknown error'}`);
+            RecordPanelProvider.current = undefined;
+            return;
+        }
+        this.startedAt = Date.now();
+        // Non-modal notification: recording keeps running in the background
+        // regardless of whether/when the user interacts with this message.
+        vscode.window
+            .showInformationMessage(`Doc Manager: recording "${this.meta.symbolName}"...`, 'Stop && Save', 'Cancel')
+            .then((choice) => {
+            if (choice === 'Stop && Save') {
+                void this.stop();
+            }
+            else if (choice === 'Cancel') {
+                this.cancelRecording();
+            }
+            // Dismissed without a choice: recording keeps going. The command
+            // below is the way to stop it in that case.
+        });
+    }
+    /** Registered once in extension.ts as docManager.stopRecording, in case
+     *  the notification was dismissed without a choice. */
+    static async stopActive() {
+        if (!RecordPanelProvider.current) {
+            vscode.window.showInformationMessage('Doc Manager: no recording in progress.');
+            return;
+        }
+        await RecordPanelProvider.current.stop();
+    }
+    async stop() {
+        if (!this.recording)
+            return;
+        try {
+            await this.recording.stop();
+        }
+        catch (err) {
+            vscode.window.showErrorMessage(`Doc Manager: recording failed — ${err instanceof Error ? err.message : 'unknown error'}`);
+            await this.discardFile();
+            RecordPanelProvider.current = undefined;
+            return;
+        }
+        const durationSec = Math.round((Date.now() - this.startedAt) / 1000);
         const transcript = await vscode.window.showInputBox({
             prompt: 'Add a short transcript or note (optional)',
             placeHolder: 'What does this recording explain?',
         });
         try {
-            const id = `${Date.now().toString(36)}${Math.random()
-                .toString(36)
-                .slice(2, 8)}`;
-            const extension = message.mimeType.includes('ogg') ? 'ogg' : 'webm';
-            const audioUrl = await (0, audioStore_1.saveAudio)(folder.uri.fsPath, id, message.base64, extension);
             await (0, docClient_1.saveDoc)({
                 type: 'voice',
                 meta: this.meta,
-                audioUrl,
+                audioUrl: this.relativePath,
                 author: (0, docClient_1.currentAuthor)(),
-                durationSec: Math.round(message.durationSec),
+                durationSec,
                 ...(transcript ? { transcript } : {}),
             });
-            this.panel.dispose();
-            // Push the new memory straight into the open doc panel.
             const doc = DocPanelProvider_1.DocPanelProvider.currentPanel;
             if (doc)
                 doc.updateEntries(await (0, docClient_1.getDocsForSymbol)(this.meta));
@@ -116,46 +152,21 @@ class RecordPanelProvider {
         catch (err) {
             vscode.window.showErrorMessage(`Doc Manager: could not save recording — ${err instanceof Error ? err.message : 'unknown error'}`);
         }
-    }
-    getHtml(webview) {
-        const base = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'recordPanel');
-        const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'recordPanel.css'));
-        const jsUri = webview.asWebviewUri(vscode.Uri.joinPath(base, 'recordPanel.js'));
-        const nonce = getNonce();
-        // media-src blob: is required for the local playback preview — without it
-        // the CSP blocks the object URL and the preview is silently empty.
-        return /* html */ `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none';
-             media-src blob:;
-             style-src ${webview.cspSource} 'unsafe-inline';
-             script-src 'nonce-${nonce}';" />
-  <link href="${cssUri}" rel="stylesheet" />
-  <title>Record</title>
-</head>
-<body>
-  <div id="root"></div>
-  <script nonce="${nonce}" src="${jsUri}"></script>
-</body>
-</html>`;
-    }
-    dispose() {
         RecordPanelProvider.current = undefined;
-        this.panel.dispose();
-        while (this.disposables.length)
-            this.disposables.pop()?.dispose();
+    }
+    cancelRecording() {
+        this.recording?.cancel();
+        void this.discardFile();
+        RecordPanelProvider.current = undefined;
+        vscode.window.showInformationMessage('Doc Manager: recording discarded.');
+    }
+    async discardFile() {
+        try {
+            await fs_1.promises.unlink(this.absolutePath);
+        }
+        catch {
+            // Nothing to clean up — file may not have been finalized.
+        }
     }
 }
 exports.RecordPanelProvider = RecordPanelProvider;
-RecordPanelProvider.viewType = 'docManager.recordPanel';
-function getNonce() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let text = '';
-    for (let i = 0; i < 32; i++) {
-        text += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return text;
-}

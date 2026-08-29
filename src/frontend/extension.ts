@@ -118,6 +118,11 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const stopRecordingCommand = vscode.commands.registerCommand(
+  'docManager.stopRecording',
+  () => RecordPanelProvider.stopActive()
+  );
+
   const docManagerRecordDocCommand = vscode.commands.registerCommand(
     'docManager.recordDoc',
     (meta: SymbolMeta) => {
@@ -296,6 +301,7 @@ export function activate(context: vscode.ExtensionContext) {
     openFullDocsCommand,
     testDocPanelCommand,
     recordDocCommand,
+    stopRecordingCommand,
     docManagerRecordDocCommand,
     docManagerAddMemoryCommand,
     docManagerAiDocsCommand,

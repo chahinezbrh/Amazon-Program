@@ -2,8 +2,6 @@
 // src/backend/services/audioStore.ts
 //
 // Writes recorded audio into the repo alongside docs.json.
-//
-// No vscode import: takes a repo root and raw bytes, same as docFileStore.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -42,6 +40,7 @@ exports.audioRelativePath = audioRelativePath;
 exports.audioAbsolutePath = audioAbsolutePath;
 exports.saveAudio = saveAudio;
 exports.deleteAudio = deleteAudio;
+// No vscode import: takes a repo root and raw bytes, same as docFileStore.
 const fs_1 = require("fs");
 const path = __importStar(require("path"));
 const AUDIO_DIR = path.join('.docmanager', 'audio');

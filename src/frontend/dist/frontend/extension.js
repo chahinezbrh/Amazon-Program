@@ -122,6 +122,7 @@ function activate(context) {
     const recordDocCommand = vscode.commands.registerCommand('yourExtension.recordDoc', (meta) => {
         recordPanelProvider_1.RecordPanelProvider.show(context.extensionUri, meta);
     });
+    const stopRecordingCommand = vscode.commands.registerCommand('docManager.stopRecording', () => recordPanelProvider_1.RecordPanelProvider.stopActive());
     const docManagerRecordDocCommand = vscode.commands.registerCommand('docManager.recordDoc', (meta) => {
         recordPanelProvider_1.RecordPanelProvider.show(context.extensionUri, meta);
     });
@@ -222,7 +223,7 @@ function activate(context) {
             }
         }
     }
-    context.subscriptions.push(hoverRegistration, connectRepoCommand, testConnectRepoCommand, showDocPanelCommand, openFullDocsCommand, testDocPanelCommand, recordDocCommand, docManagerRecordDocCommand, docManagerAddMemoryCommand, docManagerAiDocsCommand, docManagerWriteDocsCommand, docManagerPlayVoiceCommand, testRecordDocCommand, sideBarView, notificationsBellView, testSideBarCommand, testPlayMemoryCommand, showNotifCenterCommand, testModificationNotifCommand, setGeminiKeyCommand, clearGeminiKeyCommand, scanRepoCommand, editDocCommand, generateDocCommand);
+    context.subscriptions.push(hoverRegistration, connectRepoCommand, testConnectRepoCommand, showDocPanelCommand, openFullDocsCommand, testDocPanelCommand, recordDocCommand, stopRecordingCommand, docManagerRecordDocCommand, docManagerAddMemoryCommand, docManagerAiDocsCommand, docManagerWriteDocsCommand, docManagerPlayVoiceCommand, testRecordDocCommand, sideBarView, notificationsBellView, testSideBarCommand, testPlayMemoryCommand, showNotifCenterCommand, testModificationNotifCommand, setGeminiKeyCommand, clearGeminiKeyCommand, scanRepoCommand, editDocCommand, generateDocCommand);
     setTimeout(() => {
         vscode.commands.executeCommand(`${sideBarProvider_1.SideBarProvider.viewId}.focus`).then(undefined, () => { });
     }, 300);
