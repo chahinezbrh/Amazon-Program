@@ -1,17 +1,31 @@
+import { getDocsForSymbol, saveDoc } from './services/docService';
 
-//to test the createDb functions and if the migrations work
-// src/backend/test-db.ts
-import { getRepoDb } from "./db/createRepoDb"; // adjust path to match your actual file location
+const ROOT = 'C:/Users/rayha/Documents/doc-manager-playground';
+const meta = {
+  symbolName: 'authenticate',
+  filePath: `${ROOT}/middleware.js`,
+  startLine: 2,
+  endLine: 14,
+};
 
 async function main() {
-  const db = getRepoDb("test-repo");
-  console.log("Database client created successfully");
+  const read = await getDocsForSymbol(ROOT, meta);
+  console.log('READ:', read.map((e) => `${e.type} stale=${e.isStale}`));
 
-  // try a simple query to confirm the tables actually exist
-  const functions = await db.functionRecord.findMany();
-  console.log("Functions in db:", functions);
+  // New function in the same file — proves the write merges instead of replacing.
+  await saveDoc(ROOT, {
+    type: 'written',
+    meta: { ...meta, symbolName: 'refreshToken', startLine: 20, endLine: 30 },
+    codeHash: 'STUB_HASH',
+    content: 'Issues a new access token.\nRejects expired refresh tokens.',
+    author: 'Test',
+  });
+
+  const still = await getDocsForSymbol(ROOT, meta);
+  console.log('AUTHENTICATE STILL THERE:', still.length);
+
+  const missing = await getDocsForSymbol(ROOT, { ...meta, symbolName: 'nope' });
+  console.log('MISSING:', missing);
 }
 
-main()
-  .catch((err) => console.error("Error:", err))
-  .finally(() => process.exit());
+main();

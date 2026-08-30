@@ -1,7 +1,6 @@
 // src/frontend/commands/recordVoice.ts
 //
-// Records a voice memo from the extension host via ffmpeg, with a status bar
-// timer and a click-to-stop control.
+
 //
 // Recording happens here rather than in a webview because VS Code's webview
 // sandbox does not reliably grant getUserMedia to extensions — the request is

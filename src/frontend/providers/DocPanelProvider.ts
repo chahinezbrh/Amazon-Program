@@ -53,7 +53,7 @@ export class DocPanelProvider {
         retainContextWhenHidden: true,
         localResourceRoots: [
           // The bundled webview, emitted by build:webview.
-          vscode.Uri.joinPath(extensionUri, 'out', 'frontend', 'webviews', 'docPanel'),
+          vscode.Uri.joinPath(extensionUri, 'out', 'webviews', 'docPanel'),
           // Voice recordings live in the USER'S repo (.docmanager/audio), not in
           // the extension folder. A webview refuses to load any file outside
           // these roots, so without this the audio silently never plays.
@@ -263,7 +263,6 @@ export class DocPanelProvider {
     const base = vscode.Uri.joinPath(
       this.extensionUri,
       'out',
-      'frontend',
       'webviews',
       'docPanel'
     );

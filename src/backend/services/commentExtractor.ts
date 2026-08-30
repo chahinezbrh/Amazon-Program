@@ -89,6 +89,7 @@ export function extractCommentAbove(
     : null;
 }
 
+
 /** Strips comment markers and the leading `*` gutter so the content renders as
  *  prose rather than a wall of asterisks. */
 function cleanBlock(raw: string[]): string[] {
@@ -110,4 +111,56 @@ function cleanBlock(raw: string[]): string[] {
 
   // A block of only markers (a `// ----` separator, say) is not documentation.
   return cleaned.some((l) => /[A-Za-z0-9]/.test(l)) ? cleaned : [];
+}
+
+/**
+ * Reads a docstring from INSIDE the function — Python's convention, where the
+ * documentation is the first statement of the body rather than a comment above
+ * the declaration.
+ *
+ * Returns null when the first statement is code, which is also the normal
+ * result for C-style languages.
+ */
+export function extractDocstringInside(
+  lines: string[],
+  startLine: number,
+  endLine: number
+): ExtractedComment | null {
+  for (let i = startLine + 1; i <= endLine; i++) {
+    const text = (lines[i] ?? '').trim();
+    if (text === '') continue;
+
+    const quote = text.startsWith('"""') ? '"""' : text.startsWith("'''") ? "'''" : null;
+    if (!quote) return null;
+
+    // Single line: """Does the thing."""
+    const rest = text.slice(3);
+    if (rest.endsWith(quote) && rest.length >= 3) {
+      const body = rest.slice(0, -3).trim();
+      return body ? { content: [body], startLine: i, isDocBlock: true } : null;
+    }
+
+    // Multi-line: collect until the closing delimiter.
+    const collected = rest ? [rest] : [];
+    for (let j = i + 1; j <= endLine; j++) {
+      const line = lines[j] ?? '';
+      if (line.trim().endsWith(quote)) {
+        const tail = line.trim().slice(0, -3);
+        if (tail) collected.push(tail);
+        return collected.length
+          ? { content: trimBlank(collected), startLine: i, isDocBlock: true }
+          : null;
+      }
+      collected.push(line.trim());
+    }
+    return null; // unterminated
+  }
+  return null;
+}
+
+function trimBlank(lines: string[]): string[] {
+  const out = [...lines];
+  while (out.length && (out[0] ?? '').trim() === '') out.shift();
+  while (out.length && (out[out.length - 1] ?? '').trim() === '') out.pop();
+  return out;
 }

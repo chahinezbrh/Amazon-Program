@@ -43,6 +43,41 @@ export interface SymbolDocsPayload extends SymbolMeta {
   entries: DocEntry[];
 }
 
+// ---------------------------------------------------------------------------
+// Notification Center types
+// ---------------------------------------------------------------------------
+
+export interface CodeNotification {
+  id: string;
+  type: 'critical' | 'modification' | 'warning' | 'info';
+  title: string;
+  functionName: string;
+  filePath: string;
+  lineRange: string;
+  startLine?: number;
+  endLine?: number;
+  description: string;
+  timestamp: string;
+  affectedAuthor: string;
+  status: 'critical' | 'reviewed' | 'resolved';
+  changeType?: string;
+  diffLines?: DiffLine[]; // was: Array<{ type: 'del' | 'add' | 'normal'; text: string }>
+  originalMemory?: {
+    quote: string;
+    duration: string;
+    author: string;
+    authorInfo: string;
+    audioPath?: string;
+  };
+  suggestedFollowUp?: string;
+}
+
+// shared/types.ts 
+export interface DiffLine {
+  type: 'del' | 'add' | 'normal';
+  text: string;
+}
+
 /** Messages sent from the extension host down to the webview. */
 export type ExtensionToWebviewMessage =
   | { type: 'meta'; payload: SymbolMeta }

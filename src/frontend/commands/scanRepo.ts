@@ -9,6 +9,7 @@
 
 import * as vscode from 'vscode';
 import { extractCommentAbove } from '../../backend/services/commentExtractor';
+import { extractDocstringInside } from '../../backend/services/commentExtractor';
 import {
   readDocFile,
   writeDocFile,
@@ -142,7 +143,9 @@ async function scanFile(uri: vscode.Uri): Promise<ScanResult[]> {
   walk(symbols, (symbol) => {
     if (!DOCUMENTABLE_KINDS.has(symbol.kind)) return;
 
-    const comment = extractCommentAbove(lines, symbol.range.start.line);
+    const comment =
+      extractCommentAbove(lines, symbol.range.start.line) ??
+      extractDocstringInside(lines, symbol.range.start.line, symbol.range.end.line);
     if (!comment) return;
 
     results.push({

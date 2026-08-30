@@ -6,7 +6,9 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "main": "./out/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -15,31 +17,33 @@
     "commands": [
       {
         "command": "docManager.showDocPanel",
-        "title": "Show Doc"
+        "title": "Show Doc",
+        "category": "Doc Manager"
       },
       {
         "command": "docManager.editDoc",
-        "title": "Write Documentation"
+        "title": "Write Documentation",
+        "category": "Doc Manager"
       },
       {
         "command": "docManager.generateDoc",
-        "title": "Generate Documentation with AI"
+        "title": "Generate Documentation with AI",
+        "category": "Doc Manager"
       },
       {
         "command": "docManager.recordDoc",
-        "title": "Record Voice Documentation"
+        "title": "Record Voice Documentation",
+        "category": "Doc Manager"
       },
-      { "command": "docManager.stopRecording", 
-        "title": "Stop Recording", "category": "Doc Manager" 
-      },
-
-      { "command": "docManager.cancelRecording", 
-        "title": "Cancel Recording", "category": "Doc Manager" 
-      },
-
       {
-        "command": "docManager.testShowDocPanel",
-        "title": "Doc Manager: Test Show Doc Panel (mock data)"
+        "command": "docManager.stopRecording",
+        "title": "Stop Recording",
+        "category": "Doc Manager"
+      },
+      {
+        "command": "docManager.cancelRecording",
+        "title": "Cancel Recording",
+        "category": "Doc Manager"
       },
       {
         "command": "docManager.scanRepo",
@@ -48,47 +52,124 @@
         "icon": "$(sync)"
       },
       {
-        "command": "docManager.setGeminiKey", 
-        "title": "Set Gemini API Key", 
-        "category": "Doc Manager" 
+        "command": "docManager.setGeminiKey",
+        "title": "Set Gemini API Key",
+        "category": "Doc Manager"
       },
-      { 
-        "command": "docManager.clearGeminiKey", 
-        "title": "Remove Gemini API Key", 
-        "category": "Doc Manager" 
+      {
+        "command": "docManager.clearGeminiKey",
+        "title": "Remove Gemini API Key",
+        "category": "Doc Manager"
+      },
+      {
+        "command": "docManager.connectRepo",
+        "title": "Connect Repository",
+        "category": "Doc Manager"
+      },
+      {
+        "command": "docManager.showNotificationCenter",
+        "title": "Show Notification Center",
+        "category": "Doc Manager"
+      },
+      {
+        "command": "docManager.testShowDocPanel",
+        "title": "Test: Show Doc Panel",
+        "category": "Doc Manager"
+      },
+      {
+        "command": "docManager.testConnectRepo",
+        "title": "Test: Show Connect Repo",
+        "category": "Doc Manager"
+      },
+      {
+        "command": "docManager.testSideBar",
+        "title": "Test: Show Sidebar",
+        "category": "Doc Manager"
+      },
+      {
+        "command": "docManager.testPlayMemory",
+        "title": "Test: Show Play Memory",
+        "category": "Doc Manager"
+      },
+      {
+        "command": "docManager.testModificationNotif",
+        "title": "Test: Show Notification Center",
+        "category": "Doc Manager"
       }
     ],
     "menus": {
       "commandPalette": [
-      {"command": "docManager.showDocPanel", "when": "false" },
-      {"command": "docManager.playVoice", "when": "false" }
-    ],
+        {
+          "command": "docManager.showDocPanel",
+          "when": "false"
+        },
+        {
+          "command": "docManager.showFunctionPopup",
+          "when": "false"
+        }
+      ],
       "editor/title": [
-      {
-        "command": "docManager.scanRepo",
-        "group": "navigation"
-      }
-    ]
+        {
+          "command": "docManager.scanRepo",
+          "group": "navigation"
+        }
+      ]
     },
-
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "amazonProgram",
+          "title": "Doc Manager",
+          "icon": "resources/head-gear.svg"
+        },
+        {
+          "id": "amazonProgramNotifications",
+          "title": "Notifications",
+          "icon": "resources/bell.svg"
+        }
+      ]
+    },
+    "views": {
+      "amazonProgram": [
+        {
+          "type": "webview",
+          "id": "amazonProgram.sideBar",
+          "name": "Memories — This File",
+          "icon": "resources/head-gear.svg"
+        }
+      ],
+      "amazonProgramNotifications": [
+        {
+          "type": "webview",
+          "id": "amazonProgram.notificationsView",
+          "name": "Notifications",
+          "icon": "resources/bell.svg"
+        }
+      ]
+    },
     "configuration": {
       "title": "Doc Manager",
       "properties": {
-      "docManager.ffmpegPath": {
-        "type": "string",
-        "default": "ffmpeg",
-        "description": "Path to the ffmpeg binary."
-      },
-      "docManager.audioDevice": {
-        "type": "string",
-        "description": "Remembered microphone. Clear this to be asked again."
-      },
-      "docManager.author": {
-        "type": "string",
-        "description": "Name recorded as the author of documentation you write."
+        "docManager.ffmpegPath": {
+          "type": "string",
+          "default": "ffmpeg",
+          "description": "Path to the ffmpeg binary."
+        },
+        "docManager.audioDevice": {
+          "type": "string",
+          "description": "Remembered microphone. Clear this to be asked again."
+        },
+        "docManager.author": {
+          "type": "string",
+          "description": "Name recorded as the author of documentation you write."
+        },
+        "docManager.geminiModel": {
+          "type": "string",
+          "default": "gemini-2.5-flash",
+          "description": "Gemini model used for generating documentation."
+        }
       }
-  }
-  }
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",
@@ -97,26 +178,34 @@
     "build": "npm run compile && npm run build:webview",
     "watch:webview": "node scripts/build-webviews.js --watch",
     "dev": "concurrently \"npm:watch\" \"npm:watch:webview\"",
+    "vscode:prepublish": "npm run build",
     "pretest": "npm run build",
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.6",
     "@types/node": "^20.14.0",
-    "@types/vscode": "^1.85.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
-    "@types/express": "^4.17.21",
-    "esbuild": "^0.21.0",
-    "typescript": "^5.4.0",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.18.1",
     "@vscode/test-electron": "^2.3.9",
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.21.0",
     "mocha": "^10.4.0",
-    "@types/mocha": "^10.0.6",
-    "concurrently": "^8.2.2"
+    "tree-sitter-wasms": "^0.1.13",
+    "tsx": "^4.23.1",
+    "typescript": "5.9.3"
   },
   "dependencies": {
+    "@octokit/rest": "^22.0.1",
+    "diff": "^9.0.0",
+    "dotenv": "^17.4.2",
+    "language-map": "^1.5.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "express": "^4.19.0"
+    "simple-git": "^3.36.0",
+    "web-tree-sitter": "^0.26.13",
+    "ws": "^8.21.3"
   }
-  
 }
