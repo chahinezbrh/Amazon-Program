@@ -15,7 +15,9 @@ export class WebhookClientService extends EventEmitter {
   }
 
   connect() {
+    console.log('[WebhookClient] connect() called, relayUrl:', this.relayUrl);
     this.ws = new WebSocket(`${this.relayUrl}`);
+    console.log('[WebhookClient] WebSocket object created');
 
     this.ws.on('open', () => {
       console.log(`[WebhookClient] connected, registering for ${this.repoUrl}`);
@@ -30,14 +32,16 @@ export class WebhookClientService extends EventEmitter {
       }
     });
 
-    this.ws.on('close', () => {
-      setTimeout(() => this.connect(), this.reconnectDelay);
+      this.ws.on('close', (code, reason) => {
+    console.log('[WebhookClient] connection closed. Code:', code, 'Reason:', reason?.toString());
+    setTimeout(() => this.connect(), this.reconnectDelay);
+  });
 
-    });
 
-    this.ws.on('error', (err) => {
-      vscode.window.showErrorMessage(`Webhook relay connection error: ${err.message}`);
-    });
+   this.ws.on('error', (err) => {
+    console.log('[WebhookClient] connection error:', err.message);
+    vscode.window.showErrorMessage(`Webhook relay connection error: ${err.message}`);
+  });
   }
 
   dispose() {

@@ -96,15 +96,19 @@ function sortRecordsFile(doc: FunctionRecordsFile): FunctionRecordsFile {
  * Walks the whole repo, parses every supported file, hashes each function's
  * body, and writes the complete result to functions.json — overwriting
  * whatever was there before (this is a full re-scan, not an incremental one).
+ *
+ * parseFile/isLanguageSupported are now async — web-tree-sitter's WASM
+ * grammars load asynchronously (Parser.init() + Language.load()), unlike the
+ * old native tree-sitter which was synchronous end to end.
  */
 export async function createFunctionRecords(repoRoot: string): Promise<FunctionRecordsFile> {
   const codeFiles = walk(repoRoot);
   const files: Record<string, StoredFunctionRecord[]> = {};
 
   for (const file of codeFiles) {
-    if (!isLanguageSupported(file.language)) continue; // no grammar installed/configured yet — skip
+    if (!(await isLanguageSupported(file.language))) continue; // no grammar available — skip
 
-    const parsedFunctions = parseFile(file);
+    const parsedFunctions = await parseFile(file);
     if (parsedFunctions.length === 0) continue;
 
     const key = relativeKeyFor(repoRoot, file.path);

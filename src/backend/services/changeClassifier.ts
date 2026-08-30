@@ -6,8 +6,8 @@
 // Heuristic, not a proof of behavioral equivalence — see the caveat below
 // classifyChange().
 
-import Parser from 'tree-sitter';
-import { LANGUAGE_CONFIGS } from '../db/languageConfigs';
+import  Parser  from 'web-tree-sitter';
+import { LANGUAGE_CONFIGS, ensureLanguageConfigsLoaded } from '../db/languageConfigs';
 
 export type ChangeKind = 'logic' | 'syntax';
 
@@ -22,19 +22,35 @@ const IGNORED_TYPES = new Set([
   'escape_sequence',
 ]);
 
+let engineInitPromise: Promise<void> | null = null;
+
+/** Same WASM engine init as parser.ts — Parser.init() loads the core
+ *  tree-sitter.wasm runtime once, shared across every Parser instance in
+ *  the process regardless of which file calls it first. */
+function ensureEngineInitialized(): Promise<void> {
+  if (!engineInitPromise) {
+    engineInitPromise = Parser.init();
+  }
+  return engineInitPromise;
+}
+
 /** Sequence of AST node types in document order — includes operator/keyword
  *  tokens (their own node type in tree-sitter, e.g. '<' vs '>'), skips
  *  comments and string content, and never records leaf text — so a renamed
  *  variable or a reworded comment/string doesn't count as a structural
  *  difference, but a changed operator, added statement, or altered
  *  condition does. */
-function structuralSignature(sourceCode: string, language: string): string[] | null {
+async function structuralSignature(sourceCode: string, language: string): Promise<string[] | null> {
+  await ensureEngineInitialized();
+  await ensureLanguageConfigsLoaded();
+
   const config = LANGUAGE_CONFIGS[language];
   if (!config) return null;
 
   const parser = new Parser();
-  parser.setLanguage(config.grammar);
+  parser.setLanguage(config.language);
   const tree = parser.parse(sourceCode);
+  if (!tree) return null;
 
   const types: string[] = [];
 
@@ -77,13 +93,13 @@ function lcsLength(a: string[], b: string[]): number {
   return prev[m];
 }
 
-export function classifyChange(
+export async function classifyChange(
   beforeBody: string,
   afterBody: string,
   language: string
-): ChangeKind {
-  const beforeShape = structuralSignature(beforeBody, language);
-  const afterShape = structuralSignature(afterBody, language);
+): Promise<ChangeKind> {
+  const beforeShape = await structuralSignature(beforeBody, language);
+  const afterShape = await structuralSignature(afterBody, language);
 
   // Parse failure (unsupported language, malformed snippet) — default to
   // "logic" since over-flagging is safer than silently hiding a real change.

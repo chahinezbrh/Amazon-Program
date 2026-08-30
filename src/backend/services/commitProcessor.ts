@@ -101,7 +101,7 @@ export async function handlePushWebhook(
       if (isNew) {
         changeType = 'Function added';
       } else if (language && beforeBody && afterBody) {
-        changeType = classifyChange(beforeBody, afterBody, language) === 'syntax'
+        changeType = (await classifyChange(beforeBody, afterBody, language)) === 'syntax'
           ? 'Syntax changed'
           : 'Logic changed';
       } else {

@@ -1,63 +1,68 @@
-import {CodeFile} from './fileWalker';
-import {LANGUAGE_CONFIGS} from './languageConfigs';
+import { CodeFile } from './fileWalker';
+import { LANGUAGE_CONFIGS, ensureLanguageConfigsLoaded } from './languageConfigs';
 import fs from 'fs';
-import Parser from 'tree-sitter';
+import Parser from 'web-tree-sitter'; // ← default import, not { Parser }
 
-
-
-
-export interface ParsedFunction{
-    name : string;
-    filePath: string;
-    lineStart: number;
-    lineEnd: number;
-    body: string;
-    
+export interface ParsedFunction {
+  name: string;
+  filePath: string;
+  lineStart: number;
+  lineEnd: number;
+  body: string;
 }
 
+let engineInitPromise: Promise<void> | null = null;
 
-
-export function isLanguageSupported(language: string ) : boolean {
-    return language in LANGUAGE_CONFIGS;
-
+/** Initializes the core WASM engine once. Must happen before any Parser is
+ *  constructed — web-tree-sitter's Parser.init() loads tree-sitter.wasm
+ *  itself, separate from any individual language grammar. */
+function ensureEngineInitialized(): Promise<void> {
+  if (!engineInitPromise) {
+    engineInitPromise = Parser.init();
+  }
+  return engineInitPromise;
 }
 
+export async function isLanguageSupported(language: string): Promise<boolean> {
+  await ensureLanguageConfigsLoaded(); // now internally guarantees engine init too
+  return language in LANGUAGE_CONFIGS;
+}
 
+export async function parseFile(file: CodeFile): Promise<ParsedFunction[]> {
+  await ensureEngineInitialized();
+  await ensureLanguageConfigsLoaded();
 
-export function parseFile(file: CodeFile): ParsedFunction[] {
-    const config = LANGUAGE_CONFIGS[file.language];
-    if(!config) return []; // if not isntalled skip
+  const config = LANGUAGE_CONFIGS[file.language];
+  if (!config) return []; // grammar not available — skip, same as before
 
-    const sourceCode = fs.readFileSync(file.path , 'utf-8');
+  const { language, functionNodeTypes } = config;
 
-    const parser = new Parser();
-    parser.setLanguage(config.grammar);
-    const tree = parser.parse(sourceCode);
+  const sourceCode = fs.readFileSync(file.path, 'utf-8');
 
-    const results: ParsedFunction[]= [];
+  const parser = new Parser();
+  parser.setLanguage(language);
+  const tree = parser.parse(sourceCode);
+  if (!tree) return [];
 
-    function visit(node: any){
-        if (config!.functionNodeTypes.includes(node.type)) {
-            const nameNode = node.childForFieldName('name');
-            results.push({
-                name: nameNode ? nameNode.text: 'anonymous', 
-                filePath: file.path,
-                lineStart: node.startPosition.row + 1,
-                lineEnd : node.endPosition.row + 1,
-                body: node.text,
-            });
-        }
+  const results: ParsedFunction[] = [];
 
-        for(const child of node.namedChildren){
-            visit(child);
-        }
+  function visit(node: any) {
+    if (functionNodeTypes.includes(node.type)) {
+      const nameNode = node.childForFieldName('name');
+      results.push({
+        name: nameNode ? nameNode.text : 'anonymous',
+        filePath: file.path,
+        lineStart: node.startPosition.row + 1,
+        lineEnd: node.endPosition.row + 1,
+        body: node.text,
+      });
     }
 
-    visit(tree.rootNode);
-    return results;
+    for (const child of node.namedChildren) {
+      visit(child);
+    }
+  }
 
-   
-    
-
-
+  visit(tree.rootNode);
+  return results;
 }
