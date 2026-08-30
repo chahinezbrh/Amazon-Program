@@ -11,7 +11,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.classifyChange = classifyChange;
-const tree_sitter_1 = __importDefault(require("tree-sitter"));
+const web_tree_sitter_1 = __importDefault(require("web-tree-sitter"));
 const languageConfigs_1 = require("../db/languageConfigs");
 /** Node types whose internal chunking can vary purely due to content
  *  (unicode width, where an f-string interpolation sits, escape sequences)
@@ -23,19 +23,33 @@ const IGNORED_TYPES = new Set([
     'string_content',
     'escape_sequence',
 ]);
+let engineInitPromise = null;
+/** Same WASM engine init as parser.ts — Parser.init() loads the core
+ *  tree-sitter.wasm runtime once, shared across every Parser instance in
+ *  the process regardless of which file calls it first. */
+function ensureEngineInitialized() {
+    if (!engineInitPromise) {
+        engineInitPromise = web_tree_sitter_1.default.init();
+    }
+    return engineInitPromise;
+}
 /** Sequence of AST node types in document order — includes operator/keyword
  *  tokens (their own node type in tree-sitter, e.g. '<' vs '>'), skips
  *  comments and string content, and never records leaf text — so a renamed
  *  variable or a reworded comment/string doesn't count as a structural
  *  difference, but a changed operator, added statement, or altered
  *  condition does. */
-function structuralSignature(sourceCode, language) {
+async function structuralSignature(sourceCode, language) {
+    await ensureEngineInitialized();
+    await (0, languageConfigs_1.ensureLanguageConfigsLoaded)();
     const config = languageConfigs_1.LANGUAGE_CONFIGS[language];
     if (!config)
         return null;
-    const parser = new tree_sitter_1.default();
-    parser.setLanguage(config.grammar);
+    const parser = new web_tree_sitter_1.default();
+    parser.setLanguage(config.language);
     const tree = parser.parse(sourceCode);
+    if (!tree)
+        return null;
     const types = [];
     function visit(node) {
         if (IGNORED_TYPES.has(node.type))
@@ -72,9 +86,9 @@ function lcsLength(a, b) {
     }
     return prev[m];
 }
-function classifyChange(beforeBody, afterBody, language) {
-    const beforeShape = structuralSignature(beforeBody, language);
-    const afterShape = structuralSignature(afterBody, language);
+async function classifyChange(beforeBody, afterBody, language) {
+    const beforeShape = await structuralSignature(beforeBody, language);
+    const afterShape = await structuralSignature(afterBody, language);
     // Parse failure (unsupported language, malformed snippet) — default to
     // "logic" since over-flagging is safer than silently hiding a real change.
     if (!beforeShape || !afterShape)

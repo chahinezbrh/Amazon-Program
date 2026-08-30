@@ -87,7 +87,7 @@ async function handlePushWebhook(repoRoot, commitAuthor, commitMessage) {
                 changeType = 'Function added';
             }
             else if (language && beforeBody && afterBody) {
-                changeType = (0, changeClassifier_1.classifyChange)(beforeBody, afterBody, language) === 'syntax'
+                changeType = (await (0, changeClassifier_1.classifyChange)(beforeBody, afterBody, language)) === 'syntax'
                     ? 'Syntax changed'
                     : 'Logic changed';
             }

@@ -12,7 +12,7 @@ export class SideBarProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private _disposables: vscode.Disposable[] = [];
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+  constructor(private readonly _extensionUri: vscode.Uri) { }
 
   /** Called by VS Code when the view becomes visible. */
   resolveWebviewView(
