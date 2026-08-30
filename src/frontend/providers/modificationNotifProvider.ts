@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { CodeNotification } from '../../shared/types';
+import { CodeNotification, SymbolMeta } from '../../shared/types';
 import { FuncManagerStore } from '../../backend/services/funcManagerStore';
 
 /**
@@ -16,6 +16,7 @@ export class ModificationNotifProvider {
   private disposables: vscode.Disposable[] = [];
 
   private notifications: CodeNotification[];
+  private resolvedNotifications: CodeNotification[];
 
   /** Opens (or reveals) the Notification Center panel. */
   public static show(extensionUri: vscode.Uri, initialFilter: string = 'all') {
@@ -41,15 +42,18 @@ export class ModificationNotifProvider {
     );
 
     // Load whatever's already been persisted for this repo (from past webhook
-    // pushes) so reopening the panel doesn't start empty every time.
+    // pushes / past resolves) so reopening the panel doesn't start empty.
     const repoRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const initialNotifications = repoRoot ? new FuncManagerStore(repoRoot).getNotifications() : [];
+    const store = repoRoot ? new FuncManagerStore(repoRoot) : null;
+    const initialNotifications = store ? store.getNotifications() : [];
+    const initialResolved = store ? store.getResolvedNotifications() : [];
 
     ModificationNotifProvider.currentPanel = new ModificationNotifProvider(
       panel,
       extensionUri,
       initialFilter,
-      initialNotifications
+      initialNotifications,
+      initialResolved
     );
   }
 
@@ -57,11 +61,13 @@ export class ModificationNotifProvider {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     private initialFilter: string,
-    initialNotifications: CodeNotification[] = []
+    initialNotifications: CodeNotification[] = [],
+    initialResolvedNotifications: CodeNotification[] = []
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.notifications = initialNotifications;
+    this.resolvedNotifications = initialResolvedNotifications;
 
     this.panel.webview.html = this.getHtml(this.panel.webview);
 
@@ -87,11 +93,12 @@ export class ModificationNotifProvider {
     this.panel.webview.postMessage({
       command: 'setData',
       notifications: this.notifications,
+      resolvedNotifications: this.resolvedNotifications,
       activeFilter: activeFilter || undefined,
     });
   }
 
-  private async handleMessage(message: { command: string; [key: string]: any }) {
+  private async handleMessage(message: { command: string;[key: string]: any }) {
     switch (message.command) {
       case 'ready':
         this.sendData(this.initialFilter);
@@ -102,7 +109,6 @@ export class ModificationNotifProvider {
         if (!notif) return;
 
         try {
-          // Open the file in the workspace
           const workspaceFolders = vscode.workspace.workspaceFolders;
           let fileUri: vscode.Uri;
           if (vscode.Uri.parse(notif.filePath).scheme === 'file') {
@@ -129,39 +135,36 @@ export class ModificationNotifProvider {
 
       case 'recordNewMemory': {
         const notif = message.notification as CodeNotification;
-        vscode.commands.executeCommand('yourExtension.recordMemory', notif);
-        vscode.window.showInformationMessage(`Recording new memory for ${notif.functionName}...`);
+        if (!notif) return;
+
+        const meta: SymbolMeta = {
+          symbolName: notif.functionName,
+          filePath: notif.filePath,
+          startLine: notif.startLine ?? 1,
+          endLine: notif.endLine ?? notif.startLine ?? 1,
+        };
+
+        vscode.commands.executeCommand('yourExtension.recordDoc', meta);
         break;
       }
 
-      case 'markResolved': {
-        const id = message.id;
-        this.notifications = this.notifications.map((n) =>
-          n.id === id ? { ...n, status: 'resolved' } : n
-        );
-        this.persistStatus(id, 'resolved');
-        this.sendData();
-        break;
-      }
+      case 'resolveNotification': {
+        const notif = message.notification as CodeNotification;
+        if (!notif) return;
 
-      case 'markReviewed': {
-        const id = message.id;
-        this.notifications = this.notifications.map((n) =>
-          n.id === id ? { ...n, status: 'reviewed' } : n
-        );
-        this.persistStatus(id, 'reviewed');
+        const repoRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!repoRoot) return;
+
+        const store = new FuncManagerStore(repoRoot);
+        const resolved = store.resolveNotification(notif.id);
+        if (!resolved) return; // already resolved elsewhere, or unknown id — no-op
+
+        this.notifications = store.getNotifications();
+        this.resolvedNotifications = store.getResolvedNotifications();
         this.sendData();
         break;
       }
     }
-  }
-
-  /** Writes the status change back to notifications.json so it survives the
-   *  panel being closed/reopened, not just the in-memory `this.notifications`. */
-  private persistStatus(id: string, status: string) {
-    const repoRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!repoRoot) return;
-    new FuncManagerStore(repoRoot).updateNotificationStatus(id, status);
   }
 
   private getHtml(webview: vscode.Webview): string {

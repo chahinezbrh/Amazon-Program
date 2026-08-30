@@ -24468,6 +24468,7 @@
   var vscode = acquireVsCodeApi();
   function ModificationNotif() {
     const [notifications, setNotifications] = (0, import_react.useState)([]);
+    const [resolvedNotifications, setResolvedNotifications] = (0, import_react.useState)([]);
     const [activeTab, setActiveTab] = (0, import_react.useState)("modifications");
     const [reviewedNotifId, setReviewedNotifId] = (0, import_react.useState)(null);
     (0, import_react.useEffect)(() => {
@@ -24477,6 +24478,9 @@
         if (msg.command === "setData") {
           if (msg.notifications) {
             setNotifications(msg.notifications);
+          }
+          if (msg.resolvedNotifications) {
+            setResolvedNotifications(msg.resolvedNotifications);
           }
           if (msg.activeFilter) {
             if (msg.activeFilter === "resolved")
@@ -24489,28 +24493,16 @@
       window.addEventListener("message", messageHandler);
       return () => window.removeEventListener("message", messageHandler);
     }, []);
-    const modificationsCount = (0, import_react.useMemo)(
-      () => notifications.filter((n) => n.status !== "resolved").length,
-      [notifications]
-    );
-    const resolvedCount = (0, import_react.useMemo)(
-      () => notifications.filter((n) => n.status === "resolved").length,
-      [notifications]
-    );
+    const modificationsCount = notifications.length;
+    const resolvedCount = resolvedNotifications.length;
     const filteredNotifications = (0, import_react.useMemo)(() => {
-      switch (activeTab) {
-        case "resolved":
-          return notifications.filter((n) => n.status === "resolved");
-        case "modifications":
-        default:
-          return notifications.filter((n) => n.status !== "resolved");
-      }
-    }, [notifications, activeTab]);
+      return activeTab === "resolved" ? resolvedNotifications : notifications;
+    }, [notifications, resolvedNotifications, activeTab]);
     const selectedNotif = (0, import_react.useMemo)(() => {
       if (!reviewedNotifId)
         return null;
-      return notifications.find((n) => n.id === reviewedNotifId) || null;
-    }, [notifications, reviewedNotifId]);
+      return notifications.find((n) => n.id === reviewedNotifId) || resolvedNotifications.find((n) => n.id === reviewedNotifId) || null;
+    }, [notifications, resolvedNotifications, reviewedNotifId]);
     const handleReview = (notif, e) => {
       if (e)
         e.stopPropagation();
@@ -24525,6 +24517,16 @@
         e.stopPropagation();
       vscode.postMessage({
         command: "recordNewMemory",
+        notification: notif
+      });
+    };
+    const handleResolve = (notif, e) => {
+      if (e)
+        e.stopPropagation();
+      if (reviewedNotifId === notif.id)
+        setReviewedNotifId(null);
+      vscode.postMessage({
+        command: "resolveNotification",
         notification: notif
       });
     };
@@ -24566,6 +24568,7 @@
         ] }) : filteredNotifications.map((notif) => {
           const isCritical = notif.type === "critical" || notif.status === "critical";
           const isSelected = selectedNotif?.id === notif.id;
+          const isResolved = activeTab === "resolved";
           return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
             "div",
             {
@@ -24622,6 +24625,14 @@
                           onClick: (e) => handleRecordNew(notif, e),
                           children: "Record new"
                         }
+                      ),
+                      !isResolved && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                        "button",
+                        {
+                          className: "action-btn action-btn--resolve",
+                          onClick: (e) => handleResolve(notif, e),
+                          children: "Resolve"
+                        }
                       )
                     ] })
                   ] })
@@ -24667,14 +24678,24 @@
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "diff-line diff-line--add", children: "+ updated code logic" })
           ] }) })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "detail-footer", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "button",
-          {
-            className: "detail-action-btn detail-action-btn--record",
-            onClick: (e) => handleRecordNew(selectedNotif, e),
-            children: "Record new memory"
-          }
-        ) })
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "detail-footer", children: [
+          activeTab !== "resolved" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "button",
+            {
+              className: "detail-action-btn detail-action-btn--resolve",
+              onClick: (e) => handleResolve(selectedNotif, e),
+              children: "Mark as resolved"
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "button",
+            {
+              className: "detail-action-btn detail-action-btn--record",
+              onClick: (e) => handleRecordNew(selectedNotif, e),
+              children: "Record new memory"
+            }
+          )
+        ] })
       ] })
     ] });
   }

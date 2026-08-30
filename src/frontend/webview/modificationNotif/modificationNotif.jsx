@@ -5,6 +5,7 @@ const vscode = acquireVsCodeApi();
 
 export default function ModificationNotif() {
   const [notifications, setNotifications] = useState([]);
+  const [resolvedNotifications, setResolvedNotifications] = useState([]);
 
   const [activeTab, setActiveTab] = useState('modifications');
   const [reviewedNotifId, setReviewedNotifId] = useState(null);
@@ -18,6 +19,9 @@ export default function ModificationNotif() {
         if (msg.notifications) {
           setNotifications(msg.notifications);
         }
+        if (msg.resolvedNotifications) {
+          setResolvedNotifications(msg.resolvedNotifications);
+        }
         if (msg.activeFilter) {
           if (msg.activeFilter === 'resolved') setActiveTab('resolved');
           else setActiveTab('modifications');
@@ -29,29 +33,24 @@ export default function ModificationNotif() {
     return () => window.removeEventListener('message', messageHandler);
   }, []);
 
-  const modificationsCount = useMemo(
-    () => notifications.filter((n) => n.status !== 'resolved').length,
-    [notifications]
-  );
-  const resolvedCount = useMemo(
-    () => notifications.filter((n) => n.status === 'resolved').length,
-    [notifications]
-  );
+  // notifications.json only ever holds unresolved items now — resolved ones
+  // are physically moved to resolvedNotifications.json — so no status
+  // filtering is needed here anymore, just plain lengths.
+  const modificationsCount = notifications.length;
+  const resolvedCount = resolvedNotifications.length;
 
   const filteredNotifications = useMemo(() => {
-    switch (activeTab) {
-      case 'resolved':
-        return notifications.filter((n) => n.status === 'resolved');
-      case 'modifications':
-      default:
-        return notifications.filter((n) => n.status !== 'resolved');
-    }
-  }, [notifications, activeTab]);
+    return activeTab === 'resolved' ? resolvedNotifications : notifications;
+  }, [notifications, resolvedNotifications, activeTab]);
 
   const selectedNotif = useMemo(() => {
     if (!reviewedNotifId) return null;
-    return notifications.find((n) => n.id === reviewedNotifId) || null;
-  }, [notifications, reviewedNotifId]);
+    return (
+      notifications.find((n) => n.id === reviewedNotifId) ||
+      resolvedNotifications.find((n) => n.id === reviewedNotifId) ||
+      null
+    );
+  }, [notifications, resolvedNotifications, reviewedNotifId]);
 
   const handleReview = (notif, e) => {
     if (e) e.stopPropagation();
@@ -66,6 +65,18 @@ export default function ModificationNotif() {
     if (e) e.stopPropagation();
     vscode.postMessage({
       command: 'recordNewMemory',
+      notification: notif,
+    });
+  };
+
+  // Sends the resolve request to the extension host, which physically moves
+  // the entry from notifications.json to resolvedNotifications.json. This
+  // webview waits for the follow-up setData to reflect the real result.
+  const handleResolve = (notif, e) => {
+    if (e) e.stopPropagation();
+    if (reviewedNotifId === notif.id) setReviewedNotifId(null);
+    vscode.postMessage({
+      command: 'resolveNotification',
       notification: notif,
     });
   };
@@ -112,6 +123,7 @@ export default function ModificationNotif() {
             filteredNotifications.map((notif) => {
               const isCritical = notif.type === 'critical' || notif.status === 'critical';
               const isSelected = selectedNotif?.id === notif.id;
+              const isResolved = activeTab === 'resolved';
 
               return (
                 <div
@@ -175,6 +187,14 @@ export default function ModificationNotif() {
                         >
                           Record new
                         </button>
+                        {!isResolved && (
+                          <button
+                            className="action-btn action-btn--resolve"
+                            onClick={(e) => handleResolve(notif, e)}
+                          >
+                            Resolve
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -237,6 +257,14 @@ export default function ModificationNotif() {
 
           {/* Action Footer */}
           <div className="detail-footer">
+            {activeTab !== 'resolved' && (
+              <button
+                className="detail-action-btn detail-action-btn--resolve"
+                onClick={(e) => handleResolve(selectedNotif, e)}
+              >
+                Mark as resolved
+              </button>
+            )}
             <button
               className="detail-action-btn detail-action-btn--record"
               onClick={(e) => handleRecordNew(selectedNotif, e)}
