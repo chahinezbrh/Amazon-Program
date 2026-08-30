@@ -205,7 +205,7 @@
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "simple-git": "^3.36.0",
-    "web-tree-sitter": "^0.26.13",
+    "web-tree-sitter": "^0.25.10",
     "ws": "^8.21.3"
   }
 }
