@@ -83,7 +83,7 @@ export async function handlePushWebhook(
       if (oldFn && language) {
         const beforeText = await fileContentAtRef(repoRoot, oldSha, relFile);
         if (beforeText) {
-          const parsed = await parseTextForLanguage(beforeText, relFile);
+          const parsed = await parseTextForLanguage(beforeText, relFile, language);
           beforeBody = parsed.find((p) => p.name === fn.name)?.body ?? '';
         }
       }
@@ -92,7 +92,7 @@ export async function handlePushWebhook(
       if (language) {
         const afterText = await fileContentAtRef(repoRoot, newSha, relFile);
         if (afterText) {
-          const parsed = await parseTextForLanguage(afterText, relFile);
+          const parsed = await parseTextForLanguage(afterText, relFile, language);
           afterBody = parsed.find((p) => p.name === fn.name)?.body ?? '';
         }
       }

@@ -62,10 +62,13 @@ export default function ModificationNotif() {
     });
   };
 
-  const handleRecordNew = (notif, e) => {
+  // Opens the documentation panel for the changed function. A notification
+  // says "this changed"; the natural next question is what the docs claimed
+  // about it — and any doc written against the old code shows as stale there.
+  const handleSeeDocs = (notif, e) => {
     if (e) e.stopPropagation();
     vscode.postMessage({
-      command: 'recordNewMemory',
+      command: 'seeDocs',
       notification: notif,
     });
   };
@@ -171,9 +174,9 @@ export default function ModificationNotif() {
                         </button>
                         <button
                           className="action-btn action-btn--record"
-                          onClick={(e) => handleRecordNew(notif, e)}
+                          onClick={(e) => handleSeeDocs(notif, e)}
                         >
-                          Record new
+                          See docs
                         </button>
                       </div>
                     </div>
@@ -237,11 +240,13 @@ export default function ModificationNotif() {
 
           {/* Action Footer */}
           <div className="detail-footer">
+            {/* selectedNotif, not notif — `notif` only exists inside the map
+                above, and referencing it here throws at click time. */}
             <button
-              className="detail-action-btn detail-action-btn--record"
-              onClick={(e) => handleRecordNew(selectedNotif, e)}
+              className="action-btn action-btn--record"
+              onClick={() => handleSeeDocs(selectedNotif)}
             >
-              Record new memory
+              See docs
             </button>
           </div>
         </div>

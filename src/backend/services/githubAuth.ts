@@ -20,7 +20,7 @@ export async function getOrPromptGithubToken(
   repoUrl: string
 ): Promise<string | undefined> {
   const secretKey = secretKeyFor(repoUrl);
-
+  
   const existing = await context.secrets.get(secretKey);
   if (existing) return existing;
 

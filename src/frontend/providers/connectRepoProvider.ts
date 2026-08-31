@@ -217,7 +217,11 @@ export class ConnectRepoProvider {
             // GitHub URL — the "open existing workspace" path may not even be a
             // GitHub repo, and if it is, connecting a webhook silently on an
             // already-open folder would be surprising.
-            if (repoUrl && repoUrl.trim().length > 0 && resolvedRepoUrl) {
+
+            console.log('[connectRepo] resolvedRepoUrl:', resolvedRepoUrl);
+            if (resolvedRepoUrl) {
+                console.log('[connectRepo] resolved URL:', resolvedRepoUrl);
+
                 this.panel.webview.postMessage({
                     command: 'setStatus',
                     status: 'loading',
@@ -225,6 +229,8 @@ export class ConnectRepoProvider {
                 });
 
                 const githubToken = await getOrPromptGithubToken(this.context, resolvedRepoUrl);
+                console.log('[connectRepo] token present:', Boolean(githubToken));
+
                 if (!githubToken) {
                     vscode.window.showWarningMessage(
                         'No GitHub token provided — live commit notifications will not work until one is added.'
@@ -237,12 +243,20 @@ export class ConnectRepoProvider {
                             relayWebhookUrl: RELAY_WEBHOOK_URL,
                             webhookSecret: RELAY_WEBHOOK_SECRET,
                         });
+                        console.log('[connectRepo] webhook registered');
+                        vscode.window.showInformationMessage(
+                            'Doc Manager: live commit notifications enabled.'
+                        );
                     } catch (err: any) {
-                        vscode.window.showErrorMessage(`Failed to register GitHub webhook: ${err.message}`);
-                        // non-fatal — indexing already succeeded, so we don't return here
+                        console.log('[connectRepo] registration FAILED:', err.message);
+                        vscode.window.showErrorMessage(
+                            `Failed to register GitHub webhook: ${err.message}`
+                        );
+                        // non-fatal — indexing already succeeded
                     }
                 }
             }
+            
             this.panel.webview.postMessage({
                 command: 'setStatus',
                 status: 'success',

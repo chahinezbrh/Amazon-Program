@@ -8,13 +8,13 @@
 // Deliberately stored in a SEPARATE directory from .docmanager (used for
 // docs.json) — function records and documentation are two independent
 // concerns, regenerated on different triggers (re-scan vs. edit), so keeping
-// them in separate files/folders avoids one write accidentally clobbering
-// or racing the other.
-import * as vscode from 'vscode';
+// them in separate files avoids one write racing the other.
+
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { walk } from '../db/fileWalker';
-import { parseFileViaSymbols } from '../../frontend/services/symbolParser';
+import { isLanguageSupported } from '../db/languageConfigs';
+import { parseSource } from './wasmParser';
 import { hashSource } from '../../shared/hash';
 import {
   FunctionRecordsFile,
@@ -39,14 +39,18 @@ function relativeKeyFor(repoRoot: string, sourceFilePath: string): string {
 // Whole-file access
 // ---------------------------------------------------------------------------
 
-export async function readFunctionRecordsFile(repoRoot: string): Promise<FunctionRecordsFile> {
+export async function readFunctionRecordsFile(
+  repoRoot: string
+): Promise<FunctionRecordsFile> {
   const target = functionRecordsPathFor(repoRoot);
 
   let raw: string;
   try {
     raw = await fs.readFile(target, 'utf8');
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return emptyFunctionRecordsFile();
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return emptyFunctionRecordsFile();
+    }
     throw err;
   }
 
@@ -64,7 +68,10 @@ export async function readFunctionRecordsFile(repoRoot: string): Promise<Functio
 
 /** Writes atomically (temp file + rename) so a crash mid-write can't leave a
  *  truncated records file behind. */
-export async function writeFunctionRecordsFile(repoRoot: string, doc: FunctionRecordsFile): Promise<void> {
+export async function writeFunctionRecordsFile(
+  repoRoot: string,
+  doc: FunctionRecordsFile
+): Promise<void> {
   const target = functionRecordsPathFor(repoRoot);
   await fs.mkdir(path.dirname(target), { recursive: true });
 
@@ -75,11 +82,13 @@ export async function writeFunctionRecordsFile(repoRoot: string, doc: FunctionRe
 }
 
 /** Stable key/array order so two scans of unchanged code produce an identical
- *  file — avoids spurious diffs if this file is ever committed to git. */
+ *  file — avoids spurious diffs if this file is ever committed. */
 function sortRecordsFile(doc: FunctionRecordsFile): FunctionRecordsFile {
   const files: Record<string, StoredFunctionRecord[]> = {};
 
-  for (const [filePath, records] of Object.entries(doc.files).sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [filePath, records] of Object.entries(doc.files).sort(([a], [b]) =>
+    a.localeCompare(b)
+  )) {
     files[filePath] = [...records].sort(
       (a, b) => a.lineStart - b.lineStart || a.name.localeCompare(b.name)
     );
@@ -89,34 +98,45 @@ function sortRecordsFile(doc: FunctionRecordsFile): FunctionRecordsFile {
 }
 
 // ---------------------------------------------------------------------------
-// The actual scan — fetch, parse, hash, write
+// The scan — walk, parse, hash, write
 // ---------------------------------------------------------------------------
 
 /**
  * Walks the whole repo, parses every supported file, hashes each function's
  * body, and writes the complete result to functions.json — overwriting
- * whatever was there before (this is a full re-scan, not an incremental one).
+ * whatever was there before (a full re-scan, not an incremental one).
  */
-export async function createFunctionRecords(repoRoot: string): Promise<FunctionRecordsFile> {
+export async function createFunctionRecords(
+  repoRoot: string
+): Promise<FunctionRecordsFile> {
   const codeFiles = walk(repoRoot);
   const files: Record<string, StoredFunctionRecord[]> = {};
 
   for (const file of codeFiles) {
-   
+    // No grammar shipped for this language — skip rather than fail the scan.
+    if (!isLanguageSupported(file.language)) continue;
 
-    const parsedFunctions = await parseFileViaSymbols(vscode.Uri.file(file.path));
-    if (parsedFunctions.length === 0) continue;
+    let source: string;
+    try {
+      source = await fs.readFile(file.path, 'utf8');
+    } catch {
+      continue; // unreadable, or vanished mid-scan
+    }
 
     const key = relativeKeyFor(repoRoot, file.path);
+    const parsedFunctions = await parseSource(source, key, file.language);
+    if (parsedFunctions.length === 0) continue;
 
-    files[key] = parsedFunctions.map((fn): StoredFunctionRecord => ({
-      name: fn.name,
-      filePath: key,
-      lineStart: fn.lineStart,
-      lineEnd: fn.lineEnd,
-      hash: hashSource(fn.body),
-      language: file.language,
-    }));
+    files[key] = parsedFunctions.map(
+      (fn): StoredFunctionRecord => ({
+        name: fn.name,
+        filePath: key,
+        lineStart: fn.lineStart,
+        lineEnd: fn.lineEnd,
+        hash: hashSource(fn.body),
+        language: file.language,
+      })
+    );
   }
 
   const result: FunctionRecordsFile = {

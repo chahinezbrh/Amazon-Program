@@ -125,10 +125,21 @@ export class ModificationNotifProvider {
         break;
       }
 
-      case 'recordNewMemory': {
+            case 'seeDocs': {
         const notif = message.notification as CodeNotification;
-        vscode.commands.executeCommand('docManager.recordMemory', notif);
-        vscode.window.showInformationMessage(`Recording new memory for ${notif.functionName}...`);
+        if (!notif) break;
+
+        const folder = vscode.workspace.workspaceFolders?.[0];
+        if (!folder) break;
+
+        // Notifications carry the function name with "()" appended and a
+        // repo-relative path; SymbolMeta wants neither.
+        vscode.commands.executeCommand('docManager.showDocPanel', {
+          symbolName: notif.functionName.replace(/\(\)$/, ''),
+          filePath: vscode.Uri.joinPath(folder.uri, notif.filePath).fsPath,
+          startLine: Math.max(0, (notif.startLine || 1) - 1),
+          endLine: Math.max(0, (notif.endLine || notif.startLine || 1) - 1),
+        });
         break;
       }
 

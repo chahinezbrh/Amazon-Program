@@ -1,86 +1,86 @@
-
+// src/backend/db/languageConfigs.ts
+//
+// Maps a language to its WebAssembly grammar and the node types that count as
+// a function.
+//
+// Keys are language-map names — "JavaScript", "Python", "C++" — because that
+// is what fileWalker's EXTENSION_TO_LANGUAGE produces. NOT VS Code language
+// ids. Getting this wrong means every lookup misses silently and nothing is
+// ever parsed.
 
 export interface LanguageConfig {
-  grammar: any;
+  /** Filename under the extension's grammars/ directory. */
+  wasmFile: string;
   functionNodeTypes: string[];
 }
 
-// Each entry attempts to require its grammar package.
-// If the package isn't installed, the require throws — we catch it
-// and simply leave that language out of the map, instead of crashing.
-function tryLoadGrammar(loader: () => any): any | null {
-  try {
-    return loader();
-  } catch {
-    return null; // package not installed yet — safe to skip
-  }
-}
-
-const rawConfigs: Record<string, { loader: () => any; functionNodeTypes: string[] }> = {
+export const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
   JavaScript: {
-    loader: () => require('tree-sitter-javascript'),
-    functionNodeTypes: ['function_declaration', 'method_definition', 'arrow_function'],
+    wasmFile: 'tree-sitter-javascript.wasm',
+    functionNodeTypes: [
+      'function_declaration',
+      'function_expression',
+      'method_definition',
+      'arrow_function',
+    ],
   },
   TypeScript: {
-    loader: () => require('tree-sitter-typescript').typescript,
-    functionNodeTypes: ['function_declaration', 'method_definition', 'arrow_function'],
+    wasmFile: 'tree-sitter-typescript.wasm',
+    functionNodeTypes: [
+      'function_declaration',
+      'function_expression',
+      'method_definition',
+      'arrow_function',
+    ],
   },
   TSX: {
-    loader: () => require('tree-sitter-typescript').tsx,
-    functionNodeTypes: ['function_declaration', 'method_definition', 'arrow_function'],
+    wasmFile: 'tree-sitter-tsx.wasm',
+    functionNodeTypes: [
+      'function_declaration',
+      'function_expression',
+      'method_definition',
+      'arrow_function',
+    ],
   },
   Python: {
-    loader: () => require('tree-sitter-python'),
+    wasmFile: 'tree-sitter-python.wasm',
     functionNodeTypes: ['function_definition'],
   },
   Java: {
-    loader: () => require('tree-sitter-java'),
-    functionNodeTypes: ['method_declaration'],
+    wasmFile: 'tree-sitter-java.wasm',
+    functionNodeTypes: ['method_declaration', 'constructor_declaration'],
   },
   Go: {
-    loader: () => require('tree-sitter-go'),
+    wasmFile: 'tree-sitter-go.wasm',
     functionNodeTypes: ['function_declaration', 'method_declaration'],
   },
   Ruby: {
-    loader: () => require('tree-sitter-ruby'),
-    functionNodeTypes: ['method'],
+    wasmFile: 'tree-sitter-ruby.wasm',
+    functionNodeTypes: ['method', 'singleton_method'],
   },
   PHP: {
-    loader: () => require('tree-sitter-php').php,
+    wasmFile: 'tree-sitter-php.wasm',
     functionNodeTypes: ['function_definition', 'method_declaration'],
   },
   Rust: {
-    loader: () => require('tree-sitter-rust'),
+    wasmFile: 'tree-sitter-rust.wasm',
     functionNodeTypes: ['function_item'],
   },
   C: {
-    loader: () => require('tree-sitter-c'),
+    wasmFile: 'tree-sitter-c.wasm',
     functionNodeTypes: ['function_definition'],
   },
   'C++': {
-    loader: () => require('tree-sitter-cpp'),
+    wasmFile: 'tree-sitter-cpp.wasm',
     functionNodeTypes: ['function_definition'],
   },
+  // Note the underscore — that is how tree-sitter-wasms names this one.
   'C#': {
-    loader: () => require('tree-sitter-c-sharp'),
+    wasmFile: 'tree-sitter-c_sharp.wasm',
     functionNodeTypes: ['method_declaration', 'local_function_statement'],
-  },
-  Kotlin: {
-    loader: () => require('tree-sitter-kotlin'),
-    functionNodeTypes: ['function_declaration'],
-  },
-  Swift: {
-    loader: () => require('tree-sitter-swift'),
-    functionNodeTypes: ['function_declaration'],
   },
 };
 
-// Build the final map, skipping any language whose package isn't installed
-export const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {};
-
-for (const [language, { loader, functionNodeTypes }] of Object.entries(rawConfigs)) {
-  const grammar = tryLoadGrammar(loader);
-  if (grammar) {
-    LANGUAGE_CONFIGS[language] = { grammar, functionNodeTypes };
-  }
+export function isLanguageSupported(language: string): boolean {
+  return language in LANGUAGE_CONFIGS;
 }

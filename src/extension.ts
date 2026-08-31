@@ -137,7 +137,7 @@ import { handlePushWebhook } from './backend/services/commitProcessor';
 import { FuncManagerStore } from './backend/services/funcManagerStore';
 
 import { SymbolMeta } from './shared/types';
-import { initGrammars } from './backend/services/changeClassifier';
+import { initGrammars } from './backend/services/wasmParser';
 
 
 
