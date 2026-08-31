@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import { CodeNotification } from '../../shared/types';
+import { CodeNotification, SymbolMeta } from '../../shared/types';
 import { FuncManagerStore } from '../../backend/services/funcManagerStore';
 
 /**
  * ModificationNotifProvider — Manages the Notification Center webview panel.
- * Displays alerts about code changes affecting recorded memories with filters,
- * review actions, and recording new memories.
+ * Displays alerts about code changes affecting recorded memories, with filters,
+ * review actions, and a route into the documentation panel.
  */
 export class ModificationNotifProvider {
   public static currentPanel: ModificationNotifProvider | undefined;
@@ -16,6 +16,7 @@ export class ModificationNotifProvider {
   private disposables: vscode.Disposable[] = [];
 
   private notifications: CodeNotification[];
+  private resolvedNotifications: CodeNotification[];
 
   /** Opens (or reveals) the Notification Center panel. */
   public static show(extensionUri: vscode.Uri, initialFilter: string = 'all') {
@@ -41,15 +42,18 @@ export class ModificationNotifProvider {
     );
 
     // Load whatever's already been persisted for this repo (from past webhook
-    // pushes) so reopening the panel doesn't start empty every time.
+    // pushes / past resolves) so reopening the panel doesn't start empty.
     const repoRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const initialNotifications = repoRoot ? new FuncManagerStore(repoRoot).getNotifications() : [];
+    const store = repoRoot ? new FuncManagerStore(repoRoot) : null;
+    const initialNotifications = store ? store.getNotifications() : [];
+    const initialResolved = store ? store.getResolvedNotifications() : [];
 
     ModificationNotifProvider.currentPanel = new ModificationNotifProvider(
       panel,
       extensionUri,
       initialFilter,
-      initialNotifications
+      initialNotifications,
+      initialResolved
     );
   }
 
@@ -57,11 +61,13 @@ export class ModificationNotifProvider {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     private initialFilter: string,
-    initialNotifications: CodeNotification[] = []
+    initialNotifications: CodeNotification[] = [],
+    initialResolvedNotifications: CodeNotification[] = []
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.notifications = initialNotifications;
+    this.resolvedNotifications = initialResolvedNotifications;
 
     this.panel.webview.html = this.getHtml(this.panel.webview);
 
@@ -87,6 +93,7 @@ export class ModificationNotifProvider {
     this.panel.webview.postMessage({
       command: 'setData',
       notifications: this.notifications,
+      resolvedNotifications: this.resolvedNotifications,
       activeFilter: activeFilter || undefined,
     });
   }
@@ -101,17 +108,13 @@ export class ModificationNotifProvider {
         const notif = message.notification as CodeNotification;
         if (!notif) return;
 
-        try {
-          // Open the file in the workspace
-                   // Notifications store repo-relative paths, so resolve against the
-          // workspace unless the path is already absolute.
-          const folder = vscode.workspace.workspaceFolders?.[0];
-          const fileUri =
-            vscode.Uri.parse(notif.filePath).scheme === 'file' || !folder
-              ? vscode.Uri.file(notif.filePath)
-              : vscode.Uri.joinPath(folder.uri, notif.filePath);
+        const absolutePath = this.absolutePathFor(notif.filePath);
+        if (!absolutePath) return;
 
-          const doc = await vscode.workspace.openTextDocument(fileUri);
+        try {
+          const doc = await vscode.workspace.openTextDocument(
+            vscode.Uri.file(absolutePath)
+          );
           const line = Math.max(0, (notif.startLine || 1) - 1);
           const endLine = Math.max(line, (notif.endLine || notif.startLine || 1) - 1);
 
@@ -119,78 +122,84 @@ export class ModificationNotifProvider {
             selection: new vscode.Range(line, 0, endLine, 0),
             viewColumn: vscode.ViewColumn.One,
           });
-        } catch (err) {
+        } catch {
           vscode.window.showErrorMessage(`Unable to open file: ${notif.filePath}`);
         }
         break;
       }
 
-            case 'seeDocs': {
+      case 'seeDocs': {
         const notif = message.notification as CodeNotification;
-        if (!notif) break;
+        if (!notif) return;
 
-        const folder = vscode.workspace.workspaceFolders?.[0];
-        if (!folder) break;
+        const absolutePath = this.absolutePathFor(notif.filePath);
+        if (!absolutePath) {
+          vscode.window.showErrorMessage(
+            'Doc Manager: open the repository folder to view its documentation.'
+          );
+          return;
+        }
 
-        // Notifications carry the function name with "()" appended and a
-        // repo-relative path; SymbolMeta wants neither.
-        vscode.commands.executeCommand('docManager.showDocPanel', {
+        // Notifications store the name with "()" appended and lines 1-indexed;
+        // SymbolMeta wants the bare identifier and 0-indexed lines, or the
+        // panel looks up a symbol that doesn't exist.
+        const meta: SymbolMeta = {
           symbolName: notif.functionName.replace(/\(\)$/, ''),
-          filePath: vscode.Uri.joinPath(folder.uri, notif.filePath).fsPath,
-          startLine: Math.max(0, (notif.startLine || 1) - 1),
-          endLine: Math.max(0, (notif.endLine || notif.startLine || 1) - 1),
-        });
+          filePath: absolutePath,
+          startLine: Math.max(0, (notif.startLine ?? 1) - 1),
+          endLine: Math.max(0, (notif.endLine ?? notif.startLine ?? 1) - 1),
+        };
+
+        vscode.commands.executeCommand('docManager.showDocPanel', meta);
         break;
       }
 
-      case 'markResolved': {
-        const id = message.id;
-        this.notifications = this.notifications.map((n) =>
-          n.id === id ? { ...n, status: 'resolved' } : n
-        );
-        this.persistStatus(id, 'resolved');
-        this.sendData();
-        break;
-      }
+      case 'resolveNotification': {
+        const notif = message.notification as CodeNotification;
+        if (!notif) return;
 
-      case 'markReviewed': {
-        const id = message.id;
-        this.notifications = this.notifications.map((n) =>
-          n.id === id ? { ...n, status: 'reviewed' } : n
-        );
-        this.persistStatus(id, 'reviewed');
+        const repoRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!repoRoot) return;
+
+        const store = new FuncManagerStore(repoRoot);
+        const resolved = store.resolveNotification(notif.id);
+        if (!resolved) return; // already resolved elsewhere, or unknown id — no-op
+
+        this.notifications = store.getNotifications();
+        this.resolvedNotifications = store.getResolvedNotifications();
         this.sendData();
         break;
       }
     }
   }
 
-  /** Writes the status change back to notifications.json so it survives the
-   *  panel being closed/reopened, not just the in-memory `this.notifications`. */
-  private persistStatus(id: string, status: string) {
-    const repoRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!repoRoot) return;
-    new FuncManagerStore(repoRoot).updateNotificationStatus(id, status);
+  /**
+   * Notifications always store repo-relative paths, so this joins to the
+   * workspace unconditionally.
+   *
+   * It deliberately does NOT test the path with Uri.parse first: a bare
+   * "test.py" parses with a file scheme, which would make the check pass and
+   * produce a broken relative Uri — and then getWorkspaceFolder returns
+   * undefined downstream and the doc lookup fails with no obvious cause.
+   */
+  private absolutePathFor(relativePath: string): string | undefined {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) return undefined;
+    return vscode.Uri.joinPath(folder.uri, relativePath).fsPath;
   }
 
   private getHtml(webview: vscode.Webview): string {
+    const base = vscode.Uri.joinPath(
+      this.extensionUri,
+      'out',
+      'webviews',
+      'modificationNotif'
+    );
     const jsUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this.extensionUri,
-        'out',
-        'webviews',
-        'modificationNotif',
-        'modificationNotif.js'
-      )
+      vscode.Uri.joinPath(base, 'modificationNotif.js')
     );
     const cssUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this.extensionUri,
-        'out',
-        'webviews',
-        'modificationNotif',
-        'modificationNotif.css'
-      )
+      vscode.Uri.joinPath(base, 'modificationNotif.css')
     );
     const nonce = getNonce();
 
